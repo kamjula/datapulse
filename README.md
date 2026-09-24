@@ -9,6 +9,12 @@ app_port: 7860
 
 # ⚡ DataPulse — GenAI Data Reliability Copilot
 
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-teal)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4+-orange)
+![License: MIT](https://img.shields.io/badge/License-MIT-green)
+![CI](https://github.com/kamjula/datapulse/actions/workflows/ci.yml/badge.svg)
+
 **ML detects, GenAI explains.** A live data-pipeline watchdog where an ML
 anomaly detector flags telemetry issues and a GenAI copilot writes the
 root-cause diagnosis — grounded in a runbook library, with citations and an

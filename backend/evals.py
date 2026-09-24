@@ -133,6 +133,8 @@ def main():
         and ok
     )
     print("PASS" if checks else "FAIL", "- thresholds: F1>0.5, all narrations cited+labeled, abstention holds")
+    if not checks:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

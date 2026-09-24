@@ -67,7 +67,7 @@
 <footer>DataPulse MVP · z-score + IsolationForest detection · TF-IDF RAG over runbooks · Claude API narration with template fallback</footer>
 
 <script>
-const METRICS = ["rows","latency_sec","null_rate","freshness_min"];
+const METRICS = ["rows","latency_sec","null_rate","freshness_min","dup_rate"];
 const chartsEl = document.getElementById("charts");
 const ctxs = {};
 METRICS.forEach(m => {

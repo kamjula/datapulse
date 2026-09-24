@@ -74,6 +74,7 @@ def run_narration() -> list[dict]:
         "null_surge": "null_rate data quality anomaly",
         "schema_change": "schema_v schema drift anomaly",
         "stale_feed": "freshness_min stale feed anomaly",
+        "duplicate_surge": "dup_rate duplicate rows data quality anomaly",
     }
     for kind, q in queries.items():
         cits = rag.search(q)

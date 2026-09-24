@@ -13,7 +13,7 @@ import numpy as np
 from collections import deque
 from sklearn.ensemble import IsolationForest
 
-FEATURES = ["rows", "latency_sec", "null_rate", "freshness_min"]
+FEATURES = ["rows", "latency_sec", "null_rate", "freshness_min", "dup_rate"]
 
 
 class AnomalyDetector:
@@ -30,7 +30,8 @@ class AnomalyDetector:
     @staticmethod
     def _vec(tick) -> np.ndarray:
         return np.array(
-            [tick.rows, tick.latency_sec, tick.null_rate, tick.freshness_min],
+            [tick.rows, tick.latency_sec, tick.null_rate, tick.freshness_min,
+             tick.dup_rate],
             dtype=float,
         )
 

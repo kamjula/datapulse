@@ -91,7 +91,7 @@ def status():
 
 @app.get("/api/series")
 def series(metric: str = "rows", n: int = 120):
-    if metric not in FEATURES + ["freshness_min", "schema_v"]:
+    if metric not in FEATURES + ["freshness_min", "schema_v", "dup_rate"]:
         metric = "rows"
     hist = list(sim.history)[-n:]
     return {

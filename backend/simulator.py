@@ -18,6 +18,7 @@ class Tick:
     null_rate: float
     freshness_min: float
     schema_v: int
+    dup_rate: float = 0.0
     injected: str | None = None
 
     def to_dict(self):
@@ -31,6 +32,7 @@ INJECTABLE = [
     "null_surge",
     "schema_change",
     "stale_feed",
+    "duplicate_surge",
 ]
 
 _DURATIONS = {
@@ -40,6 +42,7 @@ _DURATIONS = {
     "null_surge": 12,
     "schema_change": 1,
     "stale_feed": 20,
+    "duplicate_surge": 12,
 }
 
 
@@ -64,6 +67,7 @@ class PipelineSimulator:
         latency = 4.0 + 0.4 * math.sin(self.t / 40) + r.gauss(0, 0.35)
         null_rate = 0.012 + r.gauss(0, 0.004)
         freshness = 6 + r.gauss(0, 1.5)
+        dup_rate = max(0.0, 0.001 + r.gauss(0, 0.0008))
         injected = None
 
         if self.active:
@@ -81,6 +85,10 @@ class PipelineSimulator:
                 self.schema_v += 1
             elif kind == "stale_feed":
                 freshness = 45 + r.gauss(0, 5)
+            elif kind == "duplicate_surge":
+                # duplicate key burst: dup share jumps, row volume inflates
+                dup_rate = 0.35 + r.gauss(0, 0.03)
+                rows *= 1.6
             rem -= 1
             self.active = (kind, rem) if rem > 0 else None
 
@@ -91,6 +99,7 @@ class PipelineSimulator:
             null_rate=min(max(null_rate, 0.0), 1.0),
             freshness_min=max(freshness, 0.0),
             schema_v=self.schema_v,
+            dup_rate=min(max(dup_rate, 0.0), 1.0),
             injected=injected,
         )
         self.history.append(tick)

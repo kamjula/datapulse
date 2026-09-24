@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DataPulse — GenAI Data Reliability Copilot</title>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --txt:#e6edf3; --dim:#8b949e; --acc:#58a6ff; --bad:#f85149; --warn:#d29922; --ok:#3fb950; }
+  * { box-sizing:border-box; font-family: -apple-system, "Segoe UI", sans-serif; }
+  body { background:var(--bg); color:var(--txt); margin:0; padding:20px; }
+  header { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  h1 { font-size:22px; margin:0; }
+  .badge { font-size:12px; padding:3px 10px; border-radius:20px; border:1px solid var(--line); color:var(--dim); }
+  .badge.live { color:var(--ok); border-color:var(--ok); }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .card h3 { margin:0 0 8px; font-size:14px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px; }
+  canvas { width:100%; height:140px; }
+  .btns { display:flex; flex-wrap:wrap; gap:8px; }
+  button { background:#21262d; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:8px 12px; cursor:pointer; font-size:13px; }
+  button:hover { border-color:var(--acc); }
+  button.danger { border-color:var(--bad); color:var(--bad); }
+  .incident { border-left:3px solid var(--warn); padding:8px 10px; margin:8px 0; background:#1c2128; border-radius:0 8px 8px 0; font-size:13px; }
+  .incident.high { border-color:var(--bad); }
+  .incident .meta { color:var(--dim); font-size:12px; }
+  .incident .narr { white-space:pre-wrap; margin-top:6px; }
+  .mode { font-size:11px; color:var(--dim); border:1px dashed var(--line); padding:2px 8px; border-radius:12px; }
+  #chatlog { max-height:220px; overflow-y:auto; font-size:13px; }
+  #chatlog .q { color:var(--acc); margin:8px 0 2px; }
+  #chatlog .a { white-space:pre-wrap; color:var(--txt); margin-bottom:8px; }
+  .row { display:flex; gap:8px; margin-top:8px; }
+  input { flex:1; background:#0d1117; border:1px solid var(--line); border-radius:8px; color:var(--txt); padding:8px 10px; }
+  footer { color:var(--dim); font-size:12px; margin-top:18px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ DataPulse</h1>
+  <span class="badge">GenAI Data Reliability Copilot</span>
+  <span class="badge" id="modebadge">narrator: …</span>
+  <span class="badge" id="tickbadge">tick 0</span>
+  <span class="badge live" id="warmbadge">warming up…</span>
+</header>
+
+<div class="grid">
+  <div class="card">
+    <h3>🔥 Chaos panel — break the pipeline</h3>
+    <div class="btns" id="injectbtns"></div>
+    <p style="color:var(--dim);font-size:12px">Inject an anomaly, then watch the ML detector flag it and the GenAI copilot diagnose it below.</p>
+  </div>
+  <div class="card">
+    <h3>💬 Ask the copilot</h3>
+    <div id="chatlog"><div class="a" style="color:var(--dim)">Ask about pipeline failures — answers are grounded in the runbook library.</div></div>
+    <div class="row">
+      <input id="qin" placeholder="e.g. what do I do about a null surge?">
+      <button onclick="ask()">Ask</button>
+    </div>
+  </div>
+</div>
+
+<h3 style="color:var(--dim);margin:18px 0 8px;font-size:14px">LIVE TELEMETRY</h3>
+<div class="grid" id="charts"></div>
+
+<h3 style="color:var(--dim);margin:18px 0 8px;font-size:14px">INCIDENTS — ML DETECTS, GENAI EXPLAINS</h3>
+<div id="incidents"><div class="card" style="color:var(--dim)">No incidents yet. Inject one from the chaos panel ☝️</div></div>
+
+<footer>DataPulse MVP · z-score + IsolationForest detection · TF-IDF RAG over runbooks · Claude API narration with template fallback</footer>
+
+<script>
+const METRICS = ["rows","latency_sec","null_rate","freshness_min"];
+const chartsEl = document.getElementById("charts");
+const ctxs = {};
+METRICS.forEach(m => {
+  const d = document.createElement("div");
+  d.className = "card";
+  d.innerHTML = `<h3>${m}</h3><canvas id="c_${m}"></canvas>`;
+  chartsEl.appendChild(d);
+  ctxs[m] = document.getElementById("c_"+m).getContext("2d");
+});
+
+function draw(m, pts) {
+  const c = ctxs[m], W = c.canvas.width = c.canvas.offsetWidth * 2, H = c.canvas.height = 280;
+  c.clearRect(0,0,W,H);
+  if (!pts.length) return;
+  const vs = pts.map(p=>p.v), mn = Math.min(...vs), mx = Math.max(...vs), rg = (mx-mn)||1;
+  const X = i => i/(pts.length-1)*W, Y = v => H-10-((v-mn)/rg)*(H-20);
+  c.strokeStyle = "#f85149"; c.lineWidth = 2;
+  pts.forEach((p,i)=>{ if(p.injected){ c.beginPath(); c.moveTo(X(i),0); c.lineTo(X(i),H); c.stroke(); }});
+  c.strokeStyle = "#58a6ff"; c.lineWidth=3; c.beginPath();
+  pts.forEach((p,i)=>{ i?c.lineTo(X(i),Y(p.v)):c.moveTo(X(i),Y(p.v)); });
+  c.stroke();
+  c.fillStyle="#8b949e"; c.font="20px sans-serif";
+  c.fillText("last: "+vs[vs.length-1].toFixed(2), 8, 24);
+}
+
+async function poll() {
+  const s = await (await fetch("/api/status")).json();
+  document.getElementById("tickbadge").textContent = "tick " + s.tick;
+  document.getElementById("modebadge").textContent = "narrator: " + s.narrator_mode;
+  document.getElementById("warmbadge").textContent = s.warmed_up ? "● detector live" : "warming up…";
+  if (!window._btns) {
+    window._btns = true;
+    const box = document.getElementById("injectbtns");
+    s.injectable.forEach(k => {
+      const b = document.createElement("button");
+      b.className = "danger"; b.textContent = k.replace(/_/g," ");
+      b.onclick = async () => { await fetch("/api/inject/"+k, {method:"POST"}); };
+      box.appendChild(b);
+    });
+  }
+  for (const m of METRICS) {
+    const d = await (await fetch(`/api/series?metric=${m}&n=120`)).json();
+    draw(m, d.points);
+  }
+  const inc = await (await fetch("/api/incidents")).json();
+  const box = document.getElementById("incidents");
+  if (inc.incidents.length) {
+    box.innerHTML = inc.incidents.map(i => {
+      const sev = i.events.some(e=>e.severity==="high") ? "high" : "";
+      const ev = i.events.map(e=>`${e.metric} via ${e.method}${e.z!=null?` (z=${e.z})`:""}${e.detail?` ${e.detail}`:""}`).join("; ");
+      const n = i.narration || {};
+      return `<div class="incident ${sev}">
+        <div class="meta">Incident #${i.id} · tick ${i.start_t} · ${i.events.length} signal(s)</div>
+        <div>${ev}</div>
+        <div class="narr">${(n.text||"diagnosing…").replace(/</g,"&lt;")}</div>
+        <div style="margin-top:6px"><span class="mode">mode: ${n.mode||"…"}</span>
+        <span class="mode">citations: ${(n.citations||[]).join(", ")||"—"}</span></div>
+      </div>`;
+    }).join("");
+  }
+}
+
+async function ask() {
+  const q = document.getElementById("qin").value.trim();
+  if (!q) return;
+  document.getElementById("qin").value = "";
+  const log = document.getElementById("chatlog");
+  log.innerHTML += `<div class="q">❓ ${q.replace(/</g,"&lt;")}</div>`;
+  const r = await (await fetch("/api/ask", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({question:q})})).json();
+  log.innerHTML += `<div class="a">${(r.text||"").replace(/</g,"&lt;")} <span class="mode">${r.mode}</span></div>`;
+  log.scrollTop = log.scrollHeight;
+}
+document.getElementById("qin").addEventListener("keydown", e => { if (e.key === "Enter") ask(); });
+
+poll();
+setInterval(poll, 2000);
+</script>
+</body>
+</html>

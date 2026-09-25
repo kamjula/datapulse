@@ -51,10 +51,7 @@ telemetry ──► ML detection ──► RAG over runbooks ──► GenAI dia
 - **Eval harness** (`backend/evals.py`) — detection precision/recall/F1 per
   anomaly, detection delay, narration-grounding checks, abstention test.
 
-## Eval results (synthetic data, seeded & reproducible)
-
-All evals run on **synthetic** telemetry from the seeded pipeline
-simulator — no production data.
+## Eval results (synthetic, seeded & reproducible)
 
 | anomaly | tick-recall | detection delay |
 |---|---|---|

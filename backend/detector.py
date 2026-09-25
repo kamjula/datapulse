@@ -9,6 +9,7 @@ Plus a discrete schema-drift check (schema_v is categorical, not Gaussian).
 Warm-up: the detector needs ~30 ticks before z-scores and ~60 before the
 IsolationForest is fitted. The demo UI shows a "warming up" state until then.
 """
+import os
 import numpy as np
 from collections import deque
 from sklearn.ensemble import IsolationForest
@@ -16,10 +17,40 @@ from sklearn.ensemble import IsolationForest
 FEATURES = ["rows", "latency_sec", "null_rate", "freshness_min", "dup_rate"]
 
 
+def _env_float(name: str, default: float) -> float:
+    """Read a float config value from the environment.
+
+    Returns ``default`` when the variable is unset. Raises ``ValueError``
+    on a non-numeric value so a misconfigured threshold fails fast instead
+    of silently running with the wrong sensitivity.
+    """
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        raise ValueError(f"{name} must be a number, got {raw!r}")
+
+
 class AnomalyDetector:
-    def __init__(self, window: int = 120, z_thresh: float = 3.0):
+    # Defaults honored when the matching DATAPULSE_* env var is unset.
+    DEFAULT_Z_THRESH = 3.5
+    DEFAULT_IF_THRESH = -0.15
+
+    def __init__(self, window: int = 120, z_thresh: float | None = None,
+                 if_thresh: float | None = None):
         self.window = window
-        self.z_thresh = z_thresh
+        self.z_thresh = (
+            _env_float("DATAPULSE_Z_THRESH", self.DEFAULT_Z_THRESH)
+            if z_thresh is None
+            else z_thresh
+        )
+        self.if_thresh = (
+            _env_float("DATAPULSE_IF_THRESH", self.DEFAULT_IF_THRESH)
+            if if_thresh is None
+            else if_thresh
+        )
         self.buf: deque = deque(maxlen=window)
         self.model = IsolationForest(
             n_estimators=100, contamination=0.03, random_state=42
@@ -79,7 +110,7 @@ class AnomalyDetector:
                 self.model.fit(arr)
                 self._fitted = True
             score = float(self.model.decision_function(v.reshape(1, -1))[0])
-            if score < -0.15 and not events:
+            if score < self.if_thresh and not events:
                 events.append(
                     {
                         "metric": "multivariate",

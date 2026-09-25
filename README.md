@@ -82,6 +82,24 @@ uvicorn backend.app:app --port 8000
 
 Optional: `export ANTHROPIC_API_KEY=...` for Claude-powered narrations.
 
+## Configuration
+
+Detector sensitivity is tunable through environment variables — no code
+changes needed to tighten or loosen anomaly detection:
+
+| variable | default | what it does |
+|---|---|---|
+| `DATAPULSE_Z_THRESH` | `3.5` | Robust z-score cutoff per metric. Lower (e.g. `2.5`) = more sensitive, more alerts; higher (e.g. `5.0`) = quieter, fewer false positives. |
+| `DATAPULSE_IF_THRESH` | `-0.15` | IsolationForest decision-score cutoff for multivariate anomalies. A more negative value (e.g. `-0.3`) only flags stronger deviations. |
+
+```bash
+# example: stricter z-score layer for a noisy pipeline
+DATAPULSE_Z_THRESH=5.0 DATAPULSE_IF_THRESH=-0.3 uvicorn backend.app:app --port 8000
+```
+
+Invalid (non-numeric) values raise a `ValueError` at startup so a typo
+never silently runs with the wrong sensitivity.
+
 ## Demo script (60 seconds for a recruiter)
 
 1. Open the dashboard, point at the live telemetry charts.

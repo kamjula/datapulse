@@ -13,7 +13,6 @@ app_port: 7860
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-teal)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4+-orange)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
-![CI](https://github.com/kamjula/datapulse/actions/workflows/ci.yml/badge.svg)
 
 **ML detects, GenAI explains.** A live data-pipeline watchdog where an ML
 anomaly detector flags telemetry issues and a GenAI copilot writes the
@@ -52,7 +51,10 @@ telemetry ──► ML detection ──► RAG over runbooks ──► GenAI dia
 - **Eval harness** (`backend/evals.py`) — detection precision/recall/F1 per
   anomaly, detection delay, narration-grounding checks, abstention test.
 
-## Eval results (seeded, reproducible)
+## Eval results (synthetic data, seeded & reproducible)
+
+All evals run on **synthetic** telemetry from the seeded pipeline
+simulator — no production data.
 
 | anomaly | tick-recall | detection delay |
 |---|---|---|
@@ -62,8 +64,9 @@ telemetry ──► ML detection ──► RAG over runbooks ──► GenAI dia
 | null_surge | 1.00 | 0 ticks |
 | schema_change | 1.00 | 0 ticks |
 | stale_feed | 1.00 | 0 ticks |
+| duplicate_surge | 1.00 | 0 ticks |
 
-Overall: **precision 0.92 · recall 1.00 · F1 0.96** · all narrations cite a
+Overall: **precision 0.96 · recall 1.00 · F1 0.98** · all narrations cite a
 runbook and label their generation mode · abstention holds.
 
 ## Quickstart
@@ -107,7 +110,7 @@ never silently runs with the wrong sensitivity.
 3. Watch the incident card appear: ML flags `null_rate` (z≈40), the copilot
    writes the diagnosis citing `[null_surge.md]`.
 4. Ask the copilot: *"what do I do about a null surge?"*
-5. Mention: evals are in the repo — F1 0.96, abstention guardrail, zero
+5. Mention: evals are in the repo — F1 0.98, abstention guardrail, zero
    hallucinated runbook answers.
 
 ## Roadmap

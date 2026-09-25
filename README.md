@@ -38,8 +38,8 @@ telemetry ──► ML detection ──► RAG over runbooks ──► GenAI dia
 - **ML anomaly detection** — robust z-score (median/MAD, immune to baseline
   contamination) + IsolationForest for multivariate drift + discrete
   schema-drift check.
-- **Chaos panel** — inject 6 failure modes live: volume spike/drop, latency
-  spike, null surge, schema change, stale feed. Detection delay: **0 ticks**.
+- **Chaos panel** — inject 7 failure modes live: volume spike/drop, latency
+  spike, null surge, schema change, stale feed, duplicate surge. Detection delay: **0 ticks**.
 - **GenAI root-cause narration** — incident context + retrieved runbook
   excerpts → concise diagnosis with `[source]` citations. Claude API when
   `ANTHROPIC_API_KEY` is set, deterministic template fallback otherwise

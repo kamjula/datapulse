@@ -24,6 +24,7 @@
   .incident.high { border-color:var(--bad); }
   .incident .meta { color:var(--dim); font-size:12px; }
   .incident .narr { white-space:pre-wrap; margin-top:6px; }
+  .incident .exp { float:right; font-size:11px; padding:4px 8px; margin-left:8px; }
   .mode { font-size:11px; color:var(--dim); border:1px dashed var(--line); padding:2px 8px; border-radius:12px; }
   #chatlog { max-height:220px; overflow-y:auto; font-size:13px; }
   #chatlog .q { color:var(--acc); margin:8px 0 2px; }
@@ -114,13 +115,14 @@ async function poll() {
   }
   const inc = await (await fetch("/api/incidents")).json();
   const box = document.getElementById("incidents");
+  window._incidents = inc.incidents; // kept for the .md export button
   if (inc.incidents.length) {
     box.innerHTML = inc.incidents.map(i => {
       const sev = i.events.some(e=>e.severity==="high") ? "high" : "";
       const ev = i.events.map(e=>`${e.metric} via ${e.method}${e.z!=null?` (z=${e.z})`:""}${e.detail?` ${e.detail}`:""}`).join("; ");
       const n = i.narration || {};
       return `<div class="incident ${sev}">
-        <div class="meta">Incident #${i.id} · tick ${i.start_t} · ${i.events.length} signal(s)</div>
+        <div class="meta"><button class="exp" onclick="exportIncident(${i.id})" title="Download this incident as a Markdown file">⬇ Export .md</button>Incident #${i.id} · tick ${i.start_t} · ${i.events.length} signal(s)</div>
         <div>${ev}</div>
         <div class="narr">${(n.text||"diagnosing…").replace(/</g,"&lt;")}</div>
         <div style="margin-top:6px"><span class="mode">mode: ${n.mode||"…"}</span>
@@ -128,6 +130,40 @@ async function poll() {
       </div>`;
     }).join("");
   }
+}
+
+// Download one incident (signals, diagnosis, citations) as a Markdown file.
+function exportIncident(id) {
+  const inc = (window._incidents || []).find(x => x.id === id);
+  if (!inc) return;
+  const sev = inc.events.some(e => e.severity === "high") ? "high" : "normal";
+  const n = inc.narration || {};
+  const L = [];
+  L.push(`# DataPulse incident #${inc.id}`, "");
+  L.push(`- severity: ${sev}`);
+  L.push(`- detected at tick: ${inc.start_t}`);
+  L.push(`- signals: ${inc.events.length}`);
+  L.push(`- narrator mode: ${n.mode || "pending"}`, "");
+  L.push("## Signals");
+  inc.events.forEach(e => {
+    let s = `- ${e.metric} via ${e.method}`;
+    if (e.z != null) s += ` (z=${e.z})`;
+    if (e.detail) s += ` — ${e.detail}`;
+    L.push(s);
+  });
+  L.push("", "## Diagnosis");
+  L.push(n.text || "_diagnosis pending…_", "");
+  L.push("## Citations");
+  const cits = n.citations || [];
+  L.push(cits.length ? cits.map(c => `- ${c}`).join("\n") : "_none_", "");
+  const blob = new Blob([L.join("\n")], { type: "text/markdown" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `datapulse-incident-${inc.id}.md`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 async function ask() {

@@ -33,6 +33,25 @@ def _summarize_events(events: list[dict]) -> str:
     return " ".join(e["metric"] for e in events) + " data pipeline anomaly"
 
 
+def _build_checklist(citations: list[dict], n_sections: int = 3) -> list[dict]:
+    """Structured response checklist from the cited runbooks.
+
+    Each cited runbook contributes its top section headings (Symptoms,
+    Likely causes, Checks, ...), so the incident payload carries a
+    responder-ready checklist alongside the diagnosis.
+    """
+    seen: set[str] = set()
+    checklist: list[dict] = []
+    for c in citations:
+        src = c["source"]
+        if src in seen:
+            continue
+        seen.add(src)
+        for heading in rag.section_headings(src, n_sections):
+            checklist.append({"source": src, "heading": heading})
+    return checklist
+
+
 def simulation_loop():
     global current
     while True:
@@ -48,6 +67,7 @@ def simulation_loop():
                         "snapshot": None,
                         "narration": None,
                         "citations": [],
+                        "checklist": [],
                     }
                     incidents.append(current)
                 current["events"].extend(events)
@@ -55,6 +75,7 @@ def simulation_loop():
                 if current["narration"] is None:
                     cits = rag.search(_summarize_events(events))
                     current["citations"] = [c["source"] for c in cits]
+                    current["checklist"] = _build_checklist(cits)
                     current["narration"] = narrator.narrate(current, cits)
         time.sleep(1)
 

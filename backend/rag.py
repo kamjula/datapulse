@@ -10,15 +10,32 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 
+def _parse_toc(text: str) -> tuple[str, list[str]]:
+    """Extract the `# title` and ordered `## section` headings from a runbook."""
+    title = ""
+    sections: list[str] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not title and line.startswith("# "):
+            title = line[2:].strip()
+        elif line.startswith("## "):
+            sections.append(line[3:].strip())
+    return title, sections
+
+
 class RunbookRAG:
     def __init__(self, path: str):
         self.docs: list[dict] = []
+        self.toc: dict[str, dict] = {}  # source -> {"title": str, "sections": [str]}
         for fp in sorted(glob.glob(os.path.join(path, "*.md"))):
             text = open(fp, encoding="utf-8").read()
+            source = os.path.basename(fp)
+            title, sections = _parse_toc(text)
+            self.toc[source] = {"title": title, "sections": sections}
             chunks = [c.strip() for c in text.split("\n## ") if c.strip()]
             for ch in chunks:
                 self.docs.append(
-                    {"source": os.path.basename(fp), "text": ch[:1200]}
+                    {"source": source, "text": ch[:1200]}
                 )
         if not self.docs:
             raise RuntimeError(f"No runbooks found in {path}")
@@ -38,3 +55,10 @@ class RunbookRAG:
             for i in idx
             if scores[i] > 0
         ]
+
+    def section_headings(self, source: str, n: int = 3) -> list[str]:
+        """Top n section headings of one runbook file (e.g. ["Symptoms", ...]).
+
+        Used to build the incident response checklist from the cited runbooks.
+        """
+        return self.toc.get(source, {}).get("sections", [])[:n]

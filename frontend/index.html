@@ -121,10 +121,14 @@ async function poll() {
       const sev = i.events.some(e=>e.severity==="high") ? "high" : "";
       const ev = i.events.map(e=>`${e.metric} via ${e.method}${e.z!=null?` (z=${e.z})`:""}${e.detail?` ${e.detail}`:""}`).join("; ");
       const n = i.narration || {};
+      const cl = (i.checklist || []).map(c =>
+        `<li><span class="mode">${c.source.replace(/</g,"&lt;")}</span> ${c.heading.replace(/</g,"&lt;")}</li>`
+      ).join("");
       return `<div class="incident ${sev}">
         <div class="meta"><button class="exp" onclick="exportIncident(${i.id})" title="Download this incident as a Markdown file">⬇ Export .md</button>Incident #${i.id} · tick ${i.start_t} · ${i.events.length} signal(s)</div>
         <div>${ev}</div>
         <div class="narr">${(n.text||"diagnosing…").replace(/</g,"&lt;")}</div>
+        ${cl ? `<div style="margin-top:6px"><span style="font-size:12px;color:var(--dim)">☑ checklist:</span><ul style="margin:4px 0 0 18px;font-size:12px;color:var(--dim)">${cl}</ul></div>` : ""}
         <div style="margin-top:6px"><span class="mode">mode: ${n.mode||"…"}</span>
         <span class="mode">citations: ${(n.citations||[]).join(", ")||"—"}</span></div>
       </div>`;
@@ -153,6 +157,9 @@ function exportIncident(id) {
   });
   L.push("", "## Diagnosis");
   L.push(n.text || "_diagnosis pending…_", "");
+  L.push("## Checklist");
+  const cl2 = inc.checklist || [];
+  L.push(cl2.length ? cl2.map(c => `- [${c.source}] ${c.heading}`).join("\n") : "_none_", "");
   L.push("## Citations");
   const cits = n.citations || [];
   L.push(cits.length ? cits.map(c => `- ${c}`).join("\n") : "_none_", "");

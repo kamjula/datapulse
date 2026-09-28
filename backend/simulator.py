@@ -3,6 +3,11 @@
 Each tick carries: rows processed, latency, null rate, freshness and schema
 version. Anomalies can be injected on demand (used by the live demo and the
 eval harness). All randomness is seeded so evals are reproducible.
+
+One tick represents 30 minutes of pipeline time, so a full week is
+``7 * TICKS_PER_DAY`` ticks. Baseline volume follows a smooth weekly
+seasonality (weekend dip), which the detector's rolling baseline absorbs
+without false positives.
 """
 import math
 import random
@@ -45,6 +50,25 @@ _DURATIONS = {
     "duplicate_surge": 12,
 }
 
+#: Time resolution of the simulated feed: 30 minutes per tick.
+TICKS_PER_DAY = 48
+
+#: Weekly seasonality depth: baseline volume swings +/-16% over the week,
+#: bottoming out on the weekend (day-of-week 5.5 = Saturday midday).
+WEEKLY_AMPLITUDE = 0.16
+
+
+def weekly_factor(t: int) -> float:
+    """Deterministic day-of-week multiplier for baseline volume.
+
+    A smooth cosine wave (no step jumps), so the rolling-baseline detector
+    tracks the drift without flagging the weekday/weekend transitions.
+    Pure function of the tick index, so seeded runs stay reproducible:
+    the same seed still produces the same RNG stream.
+    """
+    dow = (t / TICKS_PER_DAY) % 7  # 0 = Monday 00:00
+    return 1.0 - WEEKLY_AMPLITUDE * (0.5 + 0.5 * math.cos(2 * math.pi * (dow - 5.5) / 7))
+
 
 class PipelineSimulator:
     def __init__(self, seed: int = 7):
@@ -63,7 +87,9 @@ class PipelineSimulator:
     def step(self) -> Tick:
         self.t += 1
         r = self.rng
-        rows = 5000 + 300 * math.sin(self.t / 25) + r.gauss(0, 250)
+        rows = (
+            5000 + 300 * math.sin(self.t / 25) + r.gauss(0, 250)
+        ) * weekly_factor(self.t)
         latency = 4.0 + 0.4 * math.sin(self.t / 40) + r.gauss(0, 0.35)
         null_rate = 0.012 + r.gauss(0, 0.004)
         freshness = 6 + r.gauss(0, 1.5)

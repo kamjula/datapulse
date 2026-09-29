@@ -9,6 +9,8 @@ app_port: 7860
 
 # ⚡ DataPulse — GenAI Data Reliability Copilot
 
+![DataPulse Overview](datapulse-overview.png)
+
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-teal)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4+-orange)

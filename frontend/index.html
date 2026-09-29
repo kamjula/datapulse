@@ -180,7 +180,9 @@ async function ask() {
   const log = document.getElementById("chatlog");
   log.innerHTML += `<div class="q">❓ ${q.replace(/</g,"&lt;")}</div>`;
   const r = await (await fetch("/api/ask", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({question:q})})).json();
-  log.innerHTML += `<div class="a">${(r.text||"").replace(/</g,"&lt;")} <span class="mode">${r.mode}</span></div>`;
+  const matched = (r.matches || []).map(m => `${m.source} (${m.score})`).join(", ");
+  const matchHtml = matched ? ` <span class="mode">matched: ${matched.replace(/</g,"&lt;")}</span>` : "";
+  log.innerHTML += `<div class="a">${(r.text||"").replace(/</g,"&lt;")} <span class="mode">${r.mode}</span>${matchHtml}</div>`;
   log.scrollTop = log.scrollHeight;
 }
 document.getElementById("qin").addEventListener("keydown", e => { if (e.key === "Enter") ask(); });

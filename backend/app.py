@@ -139,4 +139,8 @@ def inject(kind: str):
 @app.post("/api/ask")
 def ask(body: AskBody):
     cits = rag.search(body.question, k=2)
-    return narrator.answer(body.question, cits)
+    ans = narrator.answer(body.question, cits)
+    # Retrieval transparency: per-source match scores alongside the answer,
+    # so the Q&A UI can render e.g. "matched: null_surge.md (0.87)".
+    ans["matches"] = rag.top_sources(body.question, k=2)
+    return ans

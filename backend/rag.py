@@ -62,3 +62,17 @@ class RunbookRAG:
         Used to build the incident response checklist from the cited runbooks.
         """
         return self.toc.get(source, {}).get("sections", [])[:n]
+
+    def top_sources(self, query: str, k: int = 2) -> list[dict]:
+        """Per-source best TF-IDF match scores, deduplicated by runbook file.
+
+        A chunk-level search can return several chunks from the same file;
+        this collapses them to one entry per runbook (keeping the best
+        score) so the Q&A UI can show, e.g.,
+        ``matched: null_surge.md (0.87)``.
+        """
+        best: dict[str, float] = {}
+        for c in self.search(query, k=max(k * 3, 6)):
+            best[c["source"]] = max(best.get(c["source"], 0.0), c["score"])
+        ranked = sorted(best.items(), key=lambda kv: kv[1], reverse=True)[:k]
+        return [{"source": s, "score": sc} for s, sc in ranked]

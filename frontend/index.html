@@ -47,7 +47,7 @@
   <div class="card">
     <h3>🔥 Chaos panel — break the pipeline</h3>
     <div class="btns" id="injectbtns"></div>
-    <p style="color:var(--dim);font-size:12px">Inject an anomaly, then watch the ML detector flag it and the GenAI copilot diagnose it below.</p>
+    <p style="color:var(--dim);font-size:12px">Inject an anomaly, then watch the ML detector flag it and the GenAI copilot diagnose it below. <b>Tip:</b> press keys 1–7 to inject — each key maps to a button in order.</p>
   </div>
   <div class="card">
     <h3>💬 Ask the copilot</h3>
@@ -102,9 +102,10 @@ async function poll() {
   if (!window._btns) {
     window._btns = true;
     const box = document.getElementById("injectbtns");
-    s.injectable.forEach(k => {
+    s.injectable.forEach((k, i) => {
       const b = document.createElement("button");
-      b.className = "danger"; b.textContent = k.replace(/_/g," ");
+      b.className = "danger"; b.textContent = `${i+1} · ${k.replace(/_/g," ")}`;
+      b.title = `Press ${i+1} to inject`;
       b.onclick = async () => { await fetch("/api/inject/"+k, {method:"POST"}); };
       box.appendChild(b);
     });
@@ -186,6 +187,14 @@ async function ask() {
   log.scrollTop = log.scrollHeight;
 }
 document.getElementById("qin").addEventListener("keydown", e => { if (e.key === "Enter") ask(); });
+document.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return; // leave browser shortcuts alone
+  const tag = (document.activeElement && document.activeElement.tagName) || "";
+  if (tag === "INPUT" || tag === "TEXTAREA") return; // don't hijack typing in the chat box
+  const n = parseInt(e.key, 10);
+  const btns = document.getElementById("injectbtns").children;
+  if (n >= 1 && n <= btns.length) btns[n - 1].click();
+});
 
 poll();
 setInterval(poll, 2000);

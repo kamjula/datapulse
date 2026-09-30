@@ -27,6 +27,9 @@ incidents: list[dict] = []
 current: dict | None = None
 lock = threading.Lock()
 INCIDENT_GAP = 40  # ticks; events within this window belong to one incident
+ESCALATION_WINDOW = 600  # ticks; ~10 minutes at the live sim's 1 tick/sec
+ESCALATION_MIN_HIGH = 3  # high-severity incidents in the window that trigger the hint
+ESCALATION_HINT = "Consider paging on-call — 3 high-severity incidents in 10 min."
 
 
 def _summarize_events(events: list[dict]) -> str:
@@ -50,6 +53,27 @@ def _build_checklist(citations: list[dict], n_sections: int = 3) -> list[dict]:
         for heading in rag.section_headings(src, n_sections):
             checklist.append({"source": src, "heading": heading})
     return checklist
+
+
+def _incident_severity(inc: dict) -> str:
+    """Incident severity: high if any of its signals was high-severity."""
+    return "high" if any(e.get("severity") == "high" for e in inc.get("events", [])) else "normal"
+
+
+def _escalation_ids(incident_list: list[dict], now_t: int) -> set[int]:
+    """Ids of the incidents that carry the escalation hint.
+
+    If 3+ high-severity incidents started within the last ESCALATION_WINDOW
+    ticks, each of them gets the hint — that cluster is the page-on-call moment.
+    Pure function over the incident list so it is easy to unit-test.
+    """
+    recent_high = [
+        i for i in incident_list
+        if _incident_severity(i) == "high" and now_t - i["start_t"] <= ESCALATION_WINDOW
+    ]
+    if len(recent_high) >= ESCALATION_MIN_HIGH:
+        return {i["id"] for i in recent_high}
+    return set()
 
 
 def simulation_loop():
@@ -127,7 +151,14 @@ def series(metric: str = "rows", n: int = 120):
 @app.get("/api/incidents")
 def get_incidents():
     with lock:
-        return {"incidents": list(reversed(incidents[-10:]))}
+        hint_ids = _escalation_ids(incidents, sim.t)
+        payload = []
+        for i in reversed(incidents[-10:]):
+            d = dict(i)  # shallow copy: the hint stays off the stored incident
+            if i["id"] in hint_ids:
+                d["escalation_hint"] = ESCALATION_HINT
+            payload.append(d)
+    return {"incidents": payload}
 
 
 @app.post("/api/inject/{kind}")
@@ -139,8 +170,4 @@ def inject(kind: str):
 @app.post("/api/ask")
 def ask(body: AskBody):
     cits = rag.search(body.question, k=2)
-    ans = narrator.answer(body.question, cits)
-    # Retrieval transparency: per-source match scores alongside the answer,
-    # so the Q&A UI can render e.g. "matched: null_surge.md (0.87)".
-    ans["matches"] = rag.top_sources(body.question, k=2)
-    return ans
+    return narrator.answer(body.question, cits)

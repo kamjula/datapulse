@@ -23,9 +23,21 @@
   .incident { border-left:3px solid var(--warn); padding:8px 10px; margin:8px 0; background:#1c2128; border-radius:0 8px 8px 0; font-size:13px; }
   .incident.high { border-color:var(--bad); }
   .escal { background:#2b1d05; border:1px solid var(--warn); color:var(--warn); border-radius:8px; padding:6px 10px; margin:8px 0 0; font-size:12px; font-weight:600; }
-  .incident .meta { color:var(--dim); font-size:12px; }
-  .incident .narr { white-space:pre-wrap; margin-top:6px; }
-  .incident .exp { float:right; font-size:11px; padding:4px 8px; margin-left:8px; }
+  /* Day 12: incident timeline — severity dots on a rail, click-to-expand diagnosis */
+  .tl { position:relative; margin:6px 0 0 8px; padding-left:24px; border-left:2px solid var(--line); }
+  .tl-node { position:relative; margin:0 0 12px; }
+  .tl-dot { position:absolute; left:-31px; top:3px; width:12px; height:12px; border-radius:50%; background:var(--warn); border:2px solid var(--bg); box-shadow:0 0 0 1.5px var(--warn); }
+  .tl-dot.high { background:var(--bad); box-shadow:0 0 0 1.5px var(--bad); }
+  .tl-head { display:flex; align-items:center; gap:8px; cursor:pointer; flex-wrap:wrap; }
+  .tl-head:hover .tl-title { color:var(--acc); text-decoration:underline; }
+  .tl-title { font-weight:600; font-size:13px; }
+  .tl-sev { font-size:11px; padding:2px 8px; border-radius:12px; border:1px solid var(--warn); color:var(--warn); text-transform:uppercase; }
+  .tl-sev.high { border-color:var(--bad); color:var(--bad); }
+  .tl-time { color:var(--dim); font-size:12px; }
+  .tl-caret { color:var(--dim); font-size:12px; }
+  .tl-body { margin-top:8px; background:#1c2128; border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:13px; }
+  .tl-body .narr { white-space:pre-wrap; margin-top:6px; }
+  .tl-body .exp { float:right; font-size:11px; padding:4px 8px; margin-left:8px; }
   .mode { font-size:11px; color:var(--dim); border:1px dashed var(--line); padding:2px 8px; border-radius:12px; }
   #chatlog { max-height:220px; overflow-y:auto; font-size:13px; }
   #chatlog .q { color:var(--acc); margin:8px 0 2px; }
@@ -116,28 +128,73 @@ async function poll() {
     draw(m, d.points);
   }
   const inc = await (await fetch("/api/incidents")).json();
-  const box = document.getElementById("incidents");
-  window._incidents = inc.incidents; // kept for the .md export button
-  if (inc.incidents.length) {
-    box.innerHTML = inc.incidents.map(i => {
-      const sev = i.events.some(e=>e.severity==="high") ? "high" : "";
-      const ev = i.events.map(e=>`${e.metric} via ${e.method}${e.z!=null?` (z=${e.z})`:""}${e.detail?` ${e.detail}`:""}`).join("; ");
-      const n = i.narration || {};
-      const cl = (i.checklist || []).map(c =>
-        `<li><span class="mode">${c.source.replace(/</g,"&lt;")}</span> ${c.heading.replace(/</g,"&lt;")}</li>`
-      ).join("");
-      return `<div class="incident ${sev}">
-        <div class="meta"><button class="exp" onclick="exportIncident(${i.id})" title="Download this incident as a Markdown file">⬇ Export .md</button>Incident #${i.id} · tick ${i.start_t} · ${i.events.length} signal(s)</div>
-        ${i.escalation_hint ? `<div class="escal">⚠️ ${String(i.escalation_hint).replace(/</g,"&lt;")}</div>` : ""}
-        <div>${ev}</div>
-        <div class="narr">${(n.text||"diagnosing…").replace(/</g,"&lt;")}</div>
-        ${cl ? `<div style="margin-top:6px"><span style="font-size:12px;color:var(--dim)">☑ checklist:</span><ul style="margin:4px 0 0 18px;font-size:12px;color:var(--dim)">${cl}</ul></div>` : ""}
-        <div style="margin-top:6px"><span class="mode">mode: ${n.mode||"…"}</span>
-        <span class="mode">citations: ${(n.citations||[]).join(", ")||"—"}</span></div>
-      </div>`;
-    }).join("");
-  }
+  window._incidents = inc.incidents; // kept for the timeline renderer + .md export button
+  window._tick = s.tick;
+  renderTimeline();
 }
+
+//__TIMELINE_LOGIC_START__
+// Escape helper reused by the timeline renderer.
+function escHtml(s) { return String(s).replace(/</g, "&lt;"); }
+
+// Relative "2 min ago" labels from sim ticks. The live sim advances
+// ~1 tick/sec, so tick distance doubles as elapsed seconds.
+function relAgo(nowTick, startT) {
+  const d = Math.max(0, nowTick - startT);
+  if (d < 8) return "just now";
+  if (d < 60) return d + "s ago";
+  const m = Math.floor(d / 60);
+  if (m < 60) return m + " min ago";
+  const h = Math.floor(m / 60);
+  return h + (h === 1 ? " hr ago" : " hrs ago");
+}
+
+// Expand/collapse survives the 2s poll re-render via this id set.
+window._expanded = window._expanded || new Set();
+window._tick = window._tick || 0;
+function toggleIncident(id) {
+  if (window._expanded.has(id)) window._expanded.delete(id);
+  else window._expanded.add(id);
+  renderTimeline();
+}
+
+function renderTimeline() {
+  const box = document.getElementById("incidents");
+  const list = window._incidents || [];
+  if (!list.length) {
+    box.innerHTML = '<div class="card" style="color:var(--dim)">No incidents yet. Inject one from the chaos panel ☝️</div>';
+    return;
+  }
+  box.innerHTML = '<div class="tl">' + list.map(i => {
+    const sev = i.events.some(e => e.severity === "high") ? "high" : "normal";
+    const open = window._expanded.has(i.id);
+    const head = `<div class="tl-head" onclick="toggleIncident(${i.id})" title="tick ${i.start_t} — click to ${open ? "collapse" : "expand"}">`
+      + `<span class="tl-dot ${sev === "high" ? "high" : ""}"></span>`
+      + `<span class="tl-title">Incident #${i.id}</span>`
+      + `<span class="tl-sev ${sev === "high" ? "high" : ""}">${sev}</span>`
+      + `<span class="tl-time">${relAgo(window._tick, i.start_t)} · ${i.events.length} signal(s)</span>`
+      + `<span class="tl-caret">${open ? "▾" : "▸"}</span></div>`;
+    if (!open) return `<div class="tl-node">${head}</div>`;
+    const ev = i.events.map(e =>
+      `${e.metric} via ${e.method}${e.z != null ? ` (z=${e.z})` : ""}${e.detail ? ` ${e.detail}` : ""}`
+    ).map(escHtml).join("; ");
+    const n = i.narration || {};
+    const cl = (i.checklist || []).map(c =>
+      `<li><span class="mode">${escHtml(c.source)}</span> ${escHtml(c.heading)}</li>`
+    ).join("");
+    return `<div class="tl-node">${head}
+      <div class="tl-body">
+        <button class="exp" onclick="event.stopPropagation();exportIncident(${i.id})" title="Download this incident as a Markdown file">⬇ Export .md</button>
+        ${i.escalation_hint ? `<div class="escal">⚠️ ${escHtml(i.escalation_hint)}</div>` : ""}
+        <div>${ev}</div>
+        <div class="narr">${escHtml(n.text || "diagnosing…")}</div>
+        ${cl ? `<div style="margin-top:6px"><span style="font-size:12px;color:var(--dim)">☑ checklist:</span><ul style="margin:4px 0 0 18px;font-size:12px;color:var(--dim)">${cl}</ul></div>` : ""}
+        <div style="margin-top:6px"><span class="mode">mode: ${escHtml(n.mode || "…")}</span>
+        <span class="mode">citations: ${escHtml((n.citations || []).join(", ") || "—")}</span></div>
+      </div></div>`;
+  }).join("") + "</div>";
+}
+//__TIMELINE_LOGIC_END__
 
 // Download one incident (signals, diagnosis, citations) as a Markdown file.
 function exportIncident(id) {

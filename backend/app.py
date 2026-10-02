@@ -149,16 +149,31 @@ def series(metric: str = "rows", n: int = 120):
 
 
 @app.get("/api/incidents")
-def get_incidents():
+def get_incidents(severity: str | None = None, limit: int = 20, offset: int = 0):
+    """Incident history, newest first.
+
+    Query params:
+      severity: "high" | "normal" — filter by incident severity (omit for all)
+      limit: page size (clamped to 1..100, default 20)
+      offset: how many newest incidents to skip (default 0)
+    Response keeps the "incidents" list (backward compatible) and adds
+    "total" (matching count before paging) plus echo of limit/offset.
+    """
+    limit = min(max(limit, 1), 100)
+    offset = max(offset, 0)
     with lock:
         hint_ids = _escalation_ids(incidents, sim.t)
+        items = list(reversed(incidents))
+        if severity:
+            items = [i for i in items if _incident_severity(i) == severity]
+        total = len(items)
         payload = []
-        for i in reversed(incidents[-10:]):
+        for i in items[offset:offset + limit]:
             d = dict(i)  # shallow copy: the hint stays off the stored incident
             if i["id"] in hint_ids:
                 d["escalation_hint"] = ESCALATION_HINT
             payload.append(d)
-    return {"incidents": payload}
+    return {"incidents": payload, "total": total, "limit": limit, "offset": offset}
 
 
 @app.post("/api/inject/{kind}")

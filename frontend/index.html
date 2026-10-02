@@ -17,7 +17,7 @@
   .card h3 { margin:0 0 8px; font-size:14px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px; }
   canvas { width:100%; height:140px; }
   .btns { display:flex; flex-wrap:wrap; gap:8px; }
-  button { background:#21262d; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:8px 12px; cursor:pointer; font-size:13px; }
+  button, select { background:#21262d; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:8px 12px; cursor:pointer; font-size:13px; }
   button:hover { border-color:var(--acc); }
   button.danger { border-color:var(--bad); color:var(--bad); }
   .incident { border-left:3px solid var(--warn); padding:8px 10px; margin:8px 0; background:#1c2128; border-radius:0 8px 8px 0; font-size:13px; }
@@ -76,6 +76,19 @@
 <div class="grid" id="charts"></div>
 
 <h3 style="color:var(--dim);margin:18px 0 8px;font-size:14px">INCIDENTS — ML DETECTS, GENAI EXPLAINS</h3>
+<div class="row" id="inccontrols" style="margin-bottom:8px;max-width:640px">
+  <label style="font-size:12px;color:var(--dim)">severity
+    <select id="sevfilter" onchange="setSevFilter(this.value)" style="margin-left:4px">
+      <option value="">all</option>
+      <option value="high">high</option>
+      <option value="normal">normal</option>
+    </select>
+  </label>
+  <span style="flex:1"></span>
+  <button onclick="incPage(-1)" title="Previous page">‹ prev</button>
+  <span id="pagerange" style="font-size:12px;color:var(--dim)"></span>
+  <button onclick="incPage(1)" title="Next page">next ›</button>
+</div>
 <div id="incidents"><div class="card" style="color:var(--dim)">No incidents yet. Inject one from the chaos panel ☝️</div></div>
 
 <footer>DataPulse MVP · z-score + IsolationForest detection · TF-IDF RAG over runbooks · Claude API narration with template fallback</footer>
@@ -127,10 +140,44 @@ async function poll() {
     const d = await (await fetch(`/api/series?metric=${m}&n=120`)).json();
     draw(m, d.points);
   }
-  const inc = await (await fetch("/api/incidents")).json();
-  window._incidents = inc.incidents; // kept for the timeline renderer + .md export button
   window._tick = s.tick;
+  await fetchIncidents();
+}
+
+// Timeline paging + severity filter state.
+const INC_PAGE = 10;
+window._sevFilter = window._sevFilter || "";
+window._page = window._page || 0;
+
+async function fetchIncidents() {
+  const q = new URLSearchParams();
+  if (window._sevFilter) q.set("severity", window._sevFilter);
+  q.set("limit", String(INC_PAGE));
+  q.set("offset", String(window._page * INC_PAGE));
+  const inc = await (await fetch("/api/incidents?" + q)).json();
+  // The list can only shrink while idling on a late page — reset to page 0 then.
+  if (inc.offset > 0 && !inc.incidents.length && inc.total > 0) {
+    window._page = 0;
+    return fetchIncidents();
+  }
+  window._incidents = inc.incidents;
+  window._incTotal = inc.total;
   renderTimeline();
+}
+
+function setSevFilter(v) {
+  window._sevFilter = v;
+  window._page = 0;
+  fetchIncidents();
+}
+
+function incPage(d) {
+  const total = window._incTotal || 0;
+  const np = window._page + d;
+  if (np < 0) return;
+  if (np * INC_PAGE >= total && total > 0) return;
+  window._page = np;
+  fetchIncidents();
 }
 
 //__TIMELINE_LOGIC_START__
@@ -161,6 +208,13 @@ function toggleIncident(id) {
 function renderTimeline() {
   const box = document.getElementById("incidents");
   const list = window._incidents || [];
+  const pr = document.getElementById("pagerange");
+  if (pr) {
+    const total = window._incTotal || 0;
+    const a = total ? window._page * INC_PAGE + 1 : 0;
+    const b = Math.min(total, (window._page + 1) * INC_PAGE);
+    pr.textContent = total ? `${a}–${b} of ${total}` : "0 incidents";
+  }
   if (!list.length) {
     box.innerHTML = '<div class="card" style="color:var(--dim)">No incidents yet. Inject one from the chaos panel ☝️</div>';
     return;

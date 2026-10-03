@@ -9,8 +9,6 @@ app_port: 7860
 
 # ⚡ DataPulse — GenAI Data Reliability Copilot
 
-![DataPulse Overview](datapulse-overview.png)
-
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-teal)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4+-orange)
@@ -102,15 +100,36 @@ DATAPULSE_Z_THRESH=5.0 DATAPULSE_IF_THRESH=-0.3 uvicorn backend.app:app --port 8
 Invalid (non-numeric) values raise a `ValueError` at startup so a typo
 never silently runs with the wrong sensitivity.
 
+## Architecture
+
+```mermaid
+flowchart LR
+    CHAOS["Chaos panel<br/>inject 7 failure modes live"]
+    SIM["Simulator<br/>backend/simulator.py<br/>1 tick/sec: rows, latency,<br/>null-rate, freshness, schema version"]
+    DET["Detector<br/>backend/detector.py<br/>robust z-score (median/MAD)<br/>+ IsolationForest<br/>+ schema-drift check"]
+    RAG["RAG over runbooks<br/>backend/rag.py<br/>TF-IDF retrieval with<br/>citations + match scores"]
+    NAR["Narrator<br/>backend/narrator.py<br/>Claude API when ANTHROPIC_API_KEY set,<br/>deterministic template fallback otherwise<br/>(UI always labels the generation mode)"]
+    DASH["Dashboard<br/>FastAPI + vanilla JS<br/>incident timeline, checklist,<br/>escalation hint, Markdown export"]
+    CHAOS -.-> SIM
+    SIM --> DET
+    DET -->|"incident context"| RAG
+    RAG -->|"cited runbook excerpts"| NAR
+    NAR -->|"diagnosis with [source] citations"| DASH
+    EV["Evals harness<br/>backend/evals.py<br/>precision 0.96 · recall 1.00 · F1 0.98<br/>detection delay 0 ticks<br/>grounding + abstention tests<br/>latency benchmark"]
+    SIM -.->|"labeled anomalies"| EV
+    DET -.->|"F1 / latency"| EV
+    NAR -.->|"grounding / abstention"| EV
+```
+
 ## Demo script (60 seconds for a recruiter)
 
-1. Open the dashboard, point at the live telemetry charts.
-2. Hit **null surge** in the chaos panel.
-3. Watch the incident card appear: ML flags `null_rate` (z≈40), the copilot
-   writes the diagnosis citing `[null_surge.md]`.
-4. Ask the copilot: *"what do I do about a null surge?"*
-5. Mention: evals are in the repo — F1 0.98, abstention guardrail, zero
-   hallucinated runbook answers.
+| sec | what to click | what to say |
+|-----|---------------|-------------|
+| 0–10 | Open the dashboard | "This is DataPulse, a GenAI data-reliability copilot — ML watches the pipeline, and a GenAI copilot writes the root-cause diagnosis." |
+| 10–25 | Hit **null surge** in the chaos panel; point at the live charts | "I'll break the pipeline right now. Watch the null-rate chart spike —" |
+| 25–40 | Point at the new incident card and the timeline | "Detection fired at tick zero. The copilot pulls the right runbook, cites it, and turns the fix into a 3-step checklist." |
+| 40–55 | Ask the copilot: *"what do I do about a null surge?"* | "It answers from the runbook library only — off-topic questions get a refusal instead of a hallucinated answer." |
+| 55–60 | Point at the README eval table | "And it's all verified by an eval harness in the repo — F1 0.98, abstention guardrail tested." |
 
 ## Roadmap
 

@@ -1,18 +1,21 @@
 """ML anomaly detection over pipeline telemetry.
 
-Two layers:
-  1. Rolling-window z-score per metric (fast, explainable).
-  2. IsolationForest on the multivariate feature vector (catches
-     interactions a single metric would miss).
-Plus a discrete schema-drift check (schema_v is categorical, not Gaussian).
+Two checks:
+  1. Rolling-window robust z-score per metric (median/MAD — fast,
+     explainable, immune to baseline contamination).
+  2. Discrete schema-drift check (schema_v is categorical, not Gaussian).
 
-Warm-up: the detector needs ~30 ticks before z-scores and ~60 before the
-IsolationForest is fitted. The demo UI shows a "warming up" state until then.
+Removed Oct 2026: an IsolationForest layer was evaluated and dropped —
+ablation (backend/baselines.py, Experiment 1 & 3) showed it added zero
+measurable detection value on every tested scenario, scaled or unscaled.
+Simpler is better; the eval numbers prove it.
+
+Warm-up: the detector needs ~30 ticks before z-scores are valid.
+The demo UI shows a "warming up" state until then.
 """
 import os
 import numpy as np
 from collections import deque
-from sklearn.ensemble import IsolationForest
 
 FEATURES = ["rows", "latency_sec", "null_rate", "freshness_min", "dup_rate"]
 
@@ -34,28 +37,17 @@ def _env_float(name: str, default: float) -> float:
 
 
 class AnomalyDetector:
-    # Defaults honored when the matching DATAPULSE_* env var is unset.
+    # Default honored when the matching DATAPULSE_* env var is unset.
     DEFAULT_Z_THRESH = 3.5
-    DEFAULT_IF_THRESH = -0.15
 
-    def __init__(self, window: int = 120, z_thresh: float | None = None,
-                 if_thresh: float | None = None):
+    def __init__(self, window: int = 120, z_thresh: float | None = None):
         self.window = window
         self.z_thresh = (
             _env_float("DATAPULSE_Z_THRESH", self.DEFAULT_Z_THRESH)
             if z_thresh is None
             else z_thresh
         )
-        self.if_thresh = (
-            _env_float("DATAPULSE_IF_THRESH", self.DEFAULT_IF_THRESH)
-            if if_thresh is None
-            else if_thresh
-        )
         self.buf: deque = deque(maxlen=window)
-        self.model = IsolationForest(
-            n_estimators=100, contamination=0.03, random_state=42
-        )
-        self._fitted = False
         self._last_schema: int | None = None
 
     @staticmethod
@@ -103,22 +95,6 @@ class AnomalyDetector:
                 }
             )
         self._last_schema = tick.schema_v
-
-        if len(self.buf) >= 60:
-            arr = np.array([self._vec(x) for x in self.buf])
-            if not self._fitted:
-                self.model.fit(arr)
-                self._fitted = True
-            score = float(self.model.decision_function(v.reshape(1, -1))[0])
-            if score < self.if_thresh and not events:
-                events.append(
-                    {
-                        "metric": "multivariate",
-                        "z": round(score, 3),
-                        "method": "isolation_forest",
-                        "severity": "low",
-                    }
-                )
 
         self.buf.append(tick)
         return events

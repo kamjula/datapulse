@@ -40,6 +40,15 @@ INJECTABLE = [
     "duplicate_surge",
 ]
 
+#: Correlated multivariate anomalies for the paper's ablation study.
+#: Each metric stays under the univariate z threshold on its own —
+#: only the joint pattern is anomalous. Kept separate from INJECTABLE
+#: so the shipped demo/eval suite numbers don't change.
+MULTIVARIATE = [
+    "slow_burn",
+    "silent_corruption",
+]
+
 _DURATIONS = {
     "volume_spike": 12,
     "volume_drop": 15,
@@ -48,6 +57,8 @@ _DURATIONS = {
     "schema_change": 1,
     "stale_feed": 20,
     "duplicate_surge": 12,
+    "slow_burn": 15,
+    "silent_corruption": 15,
 }
 
 #: Time resolution of the simulated feed: 30 minutes per tick.
@@ -79,7 +90,7 @@ class PipelineSimulator:
         self.history: deque[Tick] = deque(maxlen=2000)
 
     def inject(self, kind: str) -> bool:
-        if kind not in INJECTABLE:
+        if kind not in INJECTABLE and kind not in MULTIVARIATE:
             return False
         self.active = (kind, _DURATIONS[kind])
         return True
@@ -115,6 +126,16 @@ class PipelineSimulator:
                 # duplicate key burst: dup share jumps, row volume inflates
                 dup_rate = 0.35 + r.gauss(0, 0.03)
                 rows *= 1.6
+            elif kind == "slow_burn":
+                # correlated degradation: latency and nulls drift together,
+                # each shift ~2.3 sigma — under the z=3.5 threshold alone
+                latency += 0.8
+                null_rate = 0.021 + r.gauss(0, 0.004)
+            elif kind == "silent_corruption":
+                # volume dips while duplicates rise — each shift ~2.5 sigma,
+                # under the z=3.5 threshold alone
+                rows *= 0.85
+                dup_rate = 0.003 + r.gauss(0, 0.0008)
             rem -= 1
             self.active = (kind, rem) if rem > 0 else None
 

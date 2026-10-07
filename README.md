@@ -27,8 +27,8 @@ about in Data Scientist / Applied AI interviews:
 
 ```
 telemetry ──► ML detection ──► RAG over runbooks ──► GenAI diagnosis
-(z-score +        (citations,          (abstains instead of
- IsolationForest)  abstention)         hallucinating)
+(robust z-score    (citations,          (abstains instead of
+ + schema-drift)   abstention)          hallucinating)
 ```
 
 ## Features
@@ -36,8 +36,9 @@ telemetry ──► ML detection ──► RAG over runbooks ──► GenAI dia
 - **Live pipeline simulator** — emits rows, latency, null-rate, freshness,
   schema version every second (seeded, reproducible).
 - **ML anomaly detection** — robust z-score (median/MAD, immune to baseline
-  contamination) + IsolationForest for multivariate drift + discrete
-  schema-drift check.
+  contamination) + discrete schema-drift check. (An IsolationForest layer
+  was evaluated and removed — ablation showed zero added value;
+  see `backend/baseline_report.md`.)
 - **Chaos panel** — inject 7 failure modes live: volume spike/drop, latency
   spike, null surge, schema change, stale feed, duplicate surge. Detection delay: **0 ticks**.
 - **GenAI root-cause narration** — incident context + retrieved runbook
@@ -90,11 +91,10 @@ changes needed to tighten or loosen anomaly detection:
 | variable | default | what it does |
 |---|---|---|
 | `DATAPULSE_Z_THRESH` | `3.5` | Robust z-score cutoff per metric. Lower (e.g. `2.5`) = more sensitive, more alerts; higher (e.g. `5.0`) = quieter, fewer false positives. |
-| `DATAPULSE_IF_THRESH` | `-0.15` | IsolationForest decision-score cutoff for multivariate anomalies. A more negative value (e.g. `-0.3`) only flags stronger deviations. |
 
 ```bash
 # example: stricter z-score layer for a noisy pipeline
-DATAPULSE_Z_THRESH=5.0 DATAPULSE_IF_THRESH=-0.3 uvicorn backend.app:app --port 8000
+DATAPULSE_Z_THRESH=5.0 uvicorn backend.app:app --port 8000
 ```
 
 Invalid (non-numeric) values raise a `ValueError` at startup so a typo
@@ -106,7 +106,7 @@ never silently runs with the wrong sensitivity.
 flowchart LR
     CHAOS["Chaos panel<br/>inject 7 failure modes live"]
     SIM["Simulator<br/>backend/simulator.py<br/>1 tick/sec: rows, latency,<br/>null-rate, freshness, schema version"]
-    DET["Detector<br/>backend/detector.py<br/>robust z-score (median/MAD)<br/>+ IsolationForest<br/>+ schema-drift check"]
+    DET["Detector<br/>backend/detector.py<br/>robust z-score (median/MAD)<br/>+ schema-drift check"]
     RAG["RAG over runbooks<br/>backend/rag.py<br/>TF-IDF retrieval with<br/>citations + match scores"]
     NAR["Narrator<br/>backend/narrator.py<br/>Claude API when ANTHROPIC_API_KEY set,<br/>deterministic template fallback otherwise<br/>(UI always labels the generation mode)"]
     DASH["Dashboard<br/>FastAPI + vanilla JS<br/>incident timeline, checklist,<br/>escalation hint, Markdown export"]

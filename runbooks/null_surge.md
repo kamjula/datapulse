@@ -2,6 +2,7 @@
 
 ## Symptoms
 - `null_rate` jumps from ~1% baseline to 10%+; data quality monitors fire.
+- Analysts often report the same thing as missing values appearing in a column that used to be populated.
 - Downstream ML features built on the affected columns degrade.
 
 ## Likely causes

@@ -28,7 +28,8 @@ class RunbookRAG:
         self.docs: list[dict] = []
         self.toc: dict[str, dict] = {}  # source -> {"title": str, "sections": [str]}
         for fp in sorted(glob.glob(os.path.join(path, "*.md"))):
-            text = open(fp, encoding="utf-8").read()
+            with open(fp, encoding="utf-8") as fh:
+                text = fh.read()
             source = os.path.basename(fp)
             title, sections = _parse_toc(text)
             self.toc[source] = {"title": title, "sections": sections}

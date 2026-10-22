@@ -52,7 +52,7 @@ telemetry ──► ML detection ──► RAG over runbooks ──► GenAI dia
 - **Eval harness** (`backend/evals.py`) — detection precision/recall/F1 per
   anomaly, detection delay, narration-grounding checks, abstention test.
 
-## Eval results (synthetic, seeded & reproducible)
+## Evaluation Results — Seeded Synthetic Data
 
 | anomaly | tick-recall | detection delay |
 |---|---|---|
@@ -121,7 +121,7 @@ flowchart LR
     NAR -.->|"grounding / abstention"| EV
 ```
 
-## Demo script (60 seconds for a recruiter)
+## 60-Second Recruiter Demo
 
 | sec | what to click | what to say |
 |-----|---------------|-------------|

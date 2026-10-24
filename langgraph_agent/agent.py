@@ -91,7 +91,8 @@ def verify(state: TriageState) -> dict:
         return {"verified": False,
                 "trace": [_step("verify", "nothing to verify (abstained)", t0)]}
     source = result["citations"][0]["source"]
-    text = open(os.path.join(KB_PATH, source), encoding="utf-8").read()
+    with open(os.path.join(KB_PATH, source), encoding="utf-8") as fh:
+        text = fh.read()
     flat = " ".join(text.split())
     ok = (result["likely_cause"][:60] in flat
           and result["suggested_fix"][:60] in flat)

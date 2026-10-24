@@ -50,7 +50,18 @@ telemetry ──► ML detection ──► RAG over runbooks ──► GenAI dia
 - **Copilot Q&A** — ask about pipeline failures in plain English, answered
   from the runbooks.
 - **Eval harness** (`backend/evals.py`) — detection precision/recall/F1 per
-  anomaly, detection delay, narration-grounding checks, abstention test.
+  anomaly, detection delay, narration-grounding checks, abstention test,
+  latency benchmark.
+- **LLM eval harness** (`backend/llm_evals.py`) — grades the copilot's
+  answers like a production LLM eval: 10 answerable questions (citation
+  accuracy 1.00, groundedness 10/10) plus 4 unanswerable questions
+  (abstention 3/4). The one miss is documented, not tuned away — see
+  the harness docstring.
+- **CI triage agent** — LangGraph `StateGraph` (`langgraph_agent/`) that
+  reads a failing CI log, retrieves the matching runbook, and produces
+  a cited, verified triage report — or abstains when nothing matches.
+  Deterministic retrieval, no LLM in the loop: 8/8 cases correct,
+  8/8 answers verified against the cited runbook.
 
 ## Evaluation Results — Seeded Synthetic Data
 
@@ -67,6 +78,38 @@ telemetry ──► ML detection ──► RAG over runbooks ──► GenAI dia
 Overall: **precision 0.96 · recall 1.00 · F1 0.98** · all narrations cite a
 runbook and label their generation mode · abstention holds.
 
+## LLM Copilot & CI Agent Evals — Real Runs
+
+### Copilot answers (`backend/llm_evals.py`)
+
+| question set | result |
+|---|---|
+| 10 answerable questions | citation 10/10 = 1.00, groundedness 10/10 |
+| 4 unanswerable questions | abstention 3/4 = 0.75 |
+| gate | PASS (groundedness perfect, citation ≥ 0.90, abstention ≥ 0.75) |
+
+One known miss, kept visible on purpose: "How do I tune a Kafka partition
+count?" shares one generic word ("count") with a runbook, so TF-IDF scores
+it above the weakest real question — a score threshold alone cannot
+separate it without also rejecting a genuine question. See the docstring
+in `backend/llm_evals.py`.
+
+### CI triage agent (`langgraph_agent/`)
+
+A LangGraph `StateGraph` — collect → extract → diagnose → (retry) →
+verify → report — that reads a failing CI log, retrieves the matching
+runbook, and ships a cited triage report. Retrieval is deterministic
+(no LLM in the loop), so the eval is reproducible. If the first pass
+abstains and a PR diff is available, the graph retries once with the
+diff's file names widening the query before giving up.
+
+| check | result |
+|---|---|
+| 8 synthetic failing logs, one per runbook | category accuracy 8/8 = 1.00 |
+| answers verified against the cited runbook | 8/8 |
+| complete node-by-node traces | 8/8 |
+| unrelated log | abstains, PASS |
+
 ## Quickstart
 
 ```bash
@@ -75,6 +118,12 @@ pip install -r requirements.txt
 
 # run evals (no API key needed)
 python -m backend.evals
+
+# LLM copilot evals (no API key needed)
+python -m backend.llm_evals
+
+# CI triage agent evals (no API key needed)
+cd langgraph_agent && python evals.py
 
 # start the live demo
 uvicorn backend.app:app --port 8000
@@ -110,11 +159,13 @@ flowchart LR
     RAG["RAG over runbooks<br/>backend/rag.py<br/>TF-IDF retrieval with<br/>citations + match scores"]
     NAR["Narrator<br/>backend/narrator.py<br/>Claude API when ANTHROPIC_API_KEY set,<br/>deterministic template fallback otherwise<br/>(UI always labels the generation mode)"]
     DASH["Dashboard<br/>FastAPI + vanilla JS<br/>incident timeline, checklist,<br/>escalation hint, Markdown export"]
+    AGENT["CI triage agent<br/>langgraph_agent/agent.py<br/>LangGraph: collect -> extract -><br/>diagnose -> verify -> report"]
     CHAOS -.-> SIM
     SIM --> DET
     DET -->|"incident context"| RAG
     RAG -->|"cited runbook excerpts"| NAR
     NAR -->|"diagnosis with [source] citations"| DASH
+    AGENT -.->|"cited CI triage report"| DASH
     EV["Evals harness<br/>backend/evals.py<br/>precision 0.96 · recall 1.00 · F1 0.98<br/>detection delay 0 ticks<br/>grounding + abstention tests<br/>latency benchmark"]
     SIM -.->|"labeled anomalies"| EV
     DET -.->|"F1 / latency"| EV
@@ -140,4 +191,4 @@ flowchart LR
 
 ## Stack
 
-Python · FastAPI · scikit-learn · TF-IDF RAG · Claude API · vanilla JS dashboard
+Python · FastAPI · scikit-learn · TF-IDF RAG · Claude API · LangGraph · vanilla JS dashboard

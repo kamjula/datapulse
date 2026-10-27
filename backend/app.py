@@ -76,6 +76,20 @@ def _escalation_ids(incident_list: list[dict], now_t: int) -> set[int]:
     return set()
 
 
+def _last_n(history, n: int) -> list:
+    """The last n items of a history list, in order.
+
+    Plain slicing gets the edges wrong: hist[-0:] is the whole list,
+    and hist[-(-3):] drops the first 3 items instead of returning none.
+    Clamp n to 0..2000 (the simulator keeps at most 2000 ticks) so a
+    bad query value can never return more than the caller asked for.
+    """
+    n = max(0, min(n, 2000))
+    if n == 0:
+        return []
+    return list(history)[-n:]
+
+
 def simulation_loop():
     global current
     while True:
@@ -138,7 +152,7 @@ def status():
 def series(metric: str = "rows", n: int = 120):
     if metric not in FEATURES + ["freshness_min", "schema_v", "dup_rate"]:
         metric = "rows"
-    hist = list(sim.history)[-n:]
+    hist = _last_n(sim.history, n)
     return {
         "metric": metric,
         "points": [

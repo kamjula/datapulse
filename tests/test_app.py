@@ -156,5 +156,51 @@ class TestBuildChecklist(unittest.TestCase):
         self.assertEqual(out, [])
 
 
+class TestLastN(unittest.TestCase):
+    def test_zero_returns_nothing(self):
+        self.assertEqual(api._last_n([1, 2, 3], 0), [])
+
+    def test_negative_returns_nothing(self):
+        self.assertEqual(api._last_n([1, 2, 3], -5), [])
+
+    def test_returns_last_n_in_order(self):
+        self.assertEqual(api._last_n([1, 2, 3, 4, 5], 2), [4, 5])
+
+    def test_n_larger_than_history_returns_all(self):
+        self.assertEqual(api._last_n([1, 2, 3], 120), [1, 2, 3])
+
+    def test_huge_n_is_capped_not_an_error(self):
+        hist = list(range(10))
+        self.assertEqual(api._last_n(hist, 100000), hist)
+
+
+class TestSeriesRoute(unittest.TestCase):
+    def _step(self, n):
+        for _ in range(n):
+            api.sim.step()
+
+    def test_n_zero_returns_no_points(self):
+        self._step(5)
+        self.assertEqual(api.series(n=0)["points"], [])
+
+    def test_negative_n_returns_no_points(self):
+        self._step(5)
+        self.assertEqual(api.series(n=-3)["points"], [])
+
+    def test_n_returns_last_points_in_order(self):
+        self._step(5)
+        out = api.series(n=2)
+        hist = list(api.sim.history)
+        self.assertEqual(
+            [p["t"] for p in out["points"]], [tk.t for tk in hist[-2:]]
+        )
+
+    def test_unknown_metric_falls_back_to_rows(self):
+        self._step(5)
+        out = api.series(metric="bogus", n=2)
+        self.assertEqual(out["metric"], "rows")
+        self.assertEqual(len(out["points"]), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

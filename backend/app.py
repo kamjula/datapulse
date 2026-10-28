@@ -7,11 +7,11 @@ import os
 import threading
 import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from backend.simulator import PipelineSimulator, INJECTABLE
+from backend.simulator import PipelineSimulator, INJECTABLE, MULTIVARIATE
 from backend.detector import AnomalyDetector, FEATURES
 from backend.rag import RunbookRAG
 from backend.narrator import Narrator
@@ -192,8 +192,18 @@ def get_incidents(severity: str | None = None, limit: int = 20, offset: int = 0)
 
 @app.post("/api/inject/{kind}")
 def inject(kind: str):
-    ok = sim.inject(kind)
-    return {"ok": ok, "kind": kind}
+    # Unknown kinds used to return 200 with ok:false, which looks like
+    # success to a caller that only checks the status code. Reject them
+    # with a clear 400 instead. The valid set is what the simulator
+    # actually accepts: the advertised kinds plus the multivariate ones.
+    if kind not in INJECTABLE + MULTIVARIATE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown anomaly kind: {kind}. "
+            f"Valid kinds: {', '.join(INJECTABLE + MULTIVARIATE)}",
+        )
+    sim.inject(kind)
+    return {"ok": True, "kind": kind}
 
 
 @app.post("/api/ask")

@@ -18,6 +18,7 @@ METRIC_LABELS = {
     "null_rate": "null rate (data quality)",
     "freshness_min": "feed freshness",
     "schema_v": "schema version",
+    "dup_rate": "duplicate rate (data quality)",
     "multivariate": "combined metrics",
 }
 
@@ -33,6 +34,7 @@ AREA = {
     "null_surge.md": "null-rate surge (data quality)",
     "schema_drift.md": "schema drift",
     "stale_feed.md": "stale feed (freshness breach)",
+    "duplicate_surge.md": "duplicate-row surge (data quality)",
 }
 
 

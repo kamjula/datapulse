@@ -7,7 +7,8 @@ and the abstain guardrail, so they run with zero API cost and no keys.
 import os
 import unittest
 
-from backend.narrator import ABSTAIN, Narrator
+from backend.detector import FEATURES
+from backend.narrator import ABSTAIN, AREA, METRIC_LABELS, Narrator
 
 
 def _incident():
@@ -72,6 +73,28 @@ class TestNarratorTemplate(unittest.TestCase):
             {"metric": "weird_metric", "method": "z-score", "severity": "low"}]}
         out = self.n.narrate(incident, _citations())
         self.assertIn("weird_metric", out["text"])
+
+    def test_narrate_duplicate_surge_uses_labels(self):
+        # duplicate_surge ships end to end (simulator, detector, runbook),
+        # so its narration must name it instead of falling back to the
+        # raw metric key and the generic cause area.
+        incident = {"id": 9, "snapshot": {"t": 100}, "events": [
+            {"metric": "dup_rate", "method": "zscore", "z": 6.1,
+             "severity": "high"}]}
+        cites = [{"source": "duplicate_surge.md", "text": "stuff", "score": 0.9}]
+        out = self.n.narrate(incident, cites)
+        self.assertIn("duplicate rate (data quality)", out["text"])
+        self.assertIn("duplicate-row surge (data quality)", out["text"])
+        self.assertNotIn("pipeline anomaly", out["text"])
+
+    def test_every_detector_metric_has_a_label(self):
+        # guards against the next new metric shipping without a label
+        for metric in FEATURES:
+            self.assertIn(metric, METRIC_LABELS)
+        for runbook in ("volume_anomalies.md", "latency_spike.md",
+                        "null_surge.md", "schema_drift.md", "stale_feed.md",
+                        "duplicate_surge.md"):
+            self.assertIn(runbook, AREA)
 
     def test_narrate_unknown_runbook_area(self):
         cites = [{"source": "some_new_thing.md", "text": "stuff", "score": 0.5}]

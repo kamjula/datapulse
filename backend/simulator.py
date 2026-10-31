@@ -92,6 +92,11 @@ class PipelineSimulator:
     def inject(self, kind: str) -> bool:
         if kind not in INJECTABLE and kind not in MULTIVARIATE:
             return False
+        # One injection at a time. A second inject used to silently
+        # replace the running one, cutting it short mid-demo with no
+        # error, so the caller could not tell anything went wrong.
+        if self.active is not None:
+            return False
         self.active = (kind, _DURATIONS[kind])
         return True
 

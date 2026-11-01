@@ -72,6 +72,24 @@ class RetrieverTest(unittest.TestCase):
         hits = self.rag.search("duplicate rows", k=1)
         self.assertLessEqual(len(hits), 1)
 
+    def test_search_rejects_bad_k(self):
+        # Negative k used to slice the wrong way: [:-1] returned almost
+        # every hit instead of failing. Zero is not a useful ask either.
+        for bad_k in (-1, 0):
+            with self.assertRaises(ValueError):
+                self.rag.search("duplicate rows", k=bad_k)
+
+    def test_top_sources_rejects_bad_k(self):
+        for bad_k in (-1, 0):
+            with self.assertRaises(ValueError):
+                self.rag.top_sources("duplicate rows", k=bad_k)
+
+    def test_section_headings_rejects_bad_n(self):
+        # Negative n quietly dropped the last heading instead of failing.
+        for bad_n in (-1, 0):
+            with self.assertRaises(ValueError):
+                self.rag.section_headings("duplicate_surge.md", n=bad_n)
+
     def test_empty_library_raises(self):
         with tempfile.TemporaryDirectory() as empty:
             with self.assertRaises(RuntimeError):

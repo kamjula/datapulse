@@ -44,6 +44,10 @@ class RunbookRAG:
         self.mat = self.vec.fit_transform([d["text"] for d in self.docs])
 
     def search(self, query: str, k: int = 2) -> list[dict]:
+        if k < 1:
+            # A negative k would slice the wrong way ([:-1] returns almost
+            # everything), so fail here instead of returning a wrong list.
+            raise ValueError(f"k must be at least 1, got {k}")
         q = self.vec.transform([query])
         scores = (self.mat @ q.T).toarray().ravel()
         idx = np.argsort(scores)[::-1][:k]
@@ -62,6 +66,10 @@ class RunbookRAG:
 
         Used to build the incident response checklist from the cited runbooks.
         """
+        if n < 1:
+            # Same slicing trap as search: a negative n quietly drops the
+            # last heading instead of failing.
+            raise ValueError(f"n must be at least 1, got {n}")
         return self.toc.get(source, {}).get("sections", [])[:n]
 
     def top_sources(self, query: str, k: int = 2) -> list[dict]:
@@ -72,6 +80,8 @@ class RunbookRAG:
         score) so the Q&A UI can show, e.g.,
         ``matched: null_surge.md (0.87)``.
         """
+        if k < 1:
+            raise ValueError(f"k must be at least 1, got {k}")
         best: dict[str, float] = {}
         for c in self.search(query, k=max(k * 3, 6)):
             best[c["source"]] = max(best.get(c["source"], 0.0), c["score"])

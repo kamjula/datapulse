@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.ci_agent import run_ci_agent, STEPS
+from backend.ci_agent import run_ci_agent, STEPS, _verify
 
 DEP_LOG = "ERROR: No matching distribution found for pandas==9.9.9"
 CLEAN_LOG = "Deploy preview ready. Build finished in 42s. All checks passed."
@@ -28,6 +28,34 @@ class TestCIAgent(unittest.TestCase):
         out = run_ci_agent(CLEAN_LOG)
         self.assertEqual(out["report"]["status"], "abstain")
         self.assertFalse(out["report"]["verified"])
+
+    def test_verify_rejects_empty_cause_and_fix(self):
+        # A runbook missing both sections used to verify by accident:
+        # "" is "in" every string in Python.
+        state = {
+            "result": {
+                "status": "ok",
+                "citations": [{"source": "timeout.md", "score": 0.9}],
+                "likely_cause": "",
+                "suggested_fix": "",
+            },
+            "trace": [],
+        }
+        _verify(state)
+        self.assertFalse(state["verified"])
+
+    def test_verify_rejects_empty_fix_only(self):
+        state = {
+            "result": {
+                "status": "ok",
+                "citations": [{"source": "timeout.md", "score": 0.9}],
+                "likely_cause": "The job hit the step time limit",
+                "suggested_fix": "",
+            },
+            "trace": [],
+        }
+        _verify(state)
+        self.assertFalse(state["verified"])
 
     def test_diff_retry_is_used_when_first_pass_abstains(self):
         # a log with no signal lines of its own: only the diff can help,

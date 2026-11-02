@@ -65,8 +65,13 @@ def _verify(state: dict) -> dict:
     with open(os.path.join(KB_PATH, source), encoding="utf-8") as fh:
         text = fh.read()
     flat = " ".join(text.split())
-    state["verified"] = (
-        result["likely_cause"][:60] in flat and result["suggested_fix"][:60] in flat
+    cause = result["likely_cause"]
+    fix = result["suggested_fix"]
+    # An empty string is "in" every string in Python, so a runbook
+    # missing a section would verify by accident. Require real text
+    # on both sides before checking it against the runbook.
+    state["verified"] = bool(cause and fix) and (
+        cause[:60] in flat and fix[:60] in flat
     )
     _trace(state, "verify", f"cause/fix grounded in {source}: {state['verified']}", t0)
     return state

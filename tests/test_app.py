@@ -35,6 +35,16 @@ class _FastAPI:
 _fastapi.FastAPI = _FastAPI
 _fastapi.responses = _responses
 
+
+class _HTTPException(Exception):
+    def __init__(self, status_code, detail=None):
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
+
+
+_fastapi.HTTPException = _HTTPException
+
 _pydantic = types.ModuleType("pydantic")
 
 
@@ -200,6 +210,35 @@ class TestSeriesRoute(unittest.TestCase):
         out = api.series(metric="bogus", n=2)
         self.assertEqual(out["metric"], "rows")
         self.assertEqual(len(out["points"]), 2)
+
+
+class TestInjectRoute(unittest.TestCase):
+    def test_unknown_kind_is_400_not_silent_ok_false(self):
+        with self.assertRaises(api.HTTPException) as ctx:
+            api.inject("not_a_real_anomaly")
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("not_a_real_anomaly", ctx.exception.detail)
+        self.assertIn("volume_spike", ctx.exception.detail)
+
+    def test_unknown_kind_injects_nothing(self):
+        try:
+            api.inject("not_a_real_anomaly")
+        except api.HTTPException:
+            pass
+        self.assertIsNone(api.sim.active)
+
+    def test_valid_kind_still_returns_ok(self):
+        out = api.inject("volume_spike")
+        self.assertEqual(out, {"ok": True, "kind": "volume_spike"})
+        self.assertEqual(api.sim.active[0], "volume_spike")
+        api.sim.active = None  # reset so later tests see a clean simulator
+
+    def test_multivariate_kind_still_accepted(self):
+        # The simulator accepts these too, so the route must not reject
+        # them while fixing the unknown-kind case.
+        out = api.inject("slow_burn")
+        self.assertEqual(out, {"ok": True, "kind": "slow_burn"})
+        api.sim.active = None
 
 
 if __name__ == "__main__":

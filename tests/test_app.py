@@ -241,5 +241,45 @@ class TestInjectRoute(unittest.TestCase):
         api.sim.active = None
 
 
+class TestIncidentsRoute(unittest.TestCase):
+    def setUp(self):
+        self.saved = api.incidents
+        api.incidents = [
+            incident(1, 10, ["high"]),
+            incident(2, 20, ["normal"]),
+            incident(3, 30, ["high", "normal"]),
+        ]
+
+    def tearDown(self):
+        api.incidents = self.saved
+
+    def test_unknown_severity_is_400_not_empty_list(self):
+        with self.assertRaises(api.HTTPException) as ctx:
+            api.get_incidents(severity="critical")
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("critical", ctx.exception.detail)
+        self.assertIn("high", ctx.exception.detail)
+        self.assertIn("normal", ctx.exception.detail)
+
+    def test_typo_severity_is_400(self):
+        with self.assertRaises(api.HTTPException) as ctx:
+            api.get_incidents(severity="hihg")
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    def test_valid_severity_still_filters(self):
+        out = api.get_incidents(severity="high")
+        self.assertEqual([i["id"] for i in out["incidents"]], [3, 1])
+        self.assertEqual(out["total"], 2)
+
+    def test_normal_severity_still_filters(self):
+        out = api.get_incidents(severity="normal")
+        self.assertEqual([i["id"] for i in out["incidents"]], [2])
+        self.assertEqual(out["total"], 1)
+
+    def test_omitted_severity_returns_all(self):
+        out = api.get_incidents()
+        self.assertEqual(out["total"], 3)
+
+
 if __name__ == "__main__":
     unittest.main()

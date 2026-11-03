@@ -173,6 +173,15 @@ def get_incidents(severity: str | None = None, limit: int = 20, offset: int = 0)
     Response keeps the "incidents" list (backward compatible) and adds
     "total" (matching count before paging) plus echo of limit/offset.
     """
+    # An unknown severity used to return an empty list with total 0,
+    # which looks exactly like "no matching incidents" to a caller that
+    # only checks the payload. Reject it with a clear 400 instead, the
+    # same way /api/inject rejects unknown anomaly kinds.
+    if severity is not None and severity not in ("high", "normal"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown severity: {severity}. Valid values: high, normal.",
+        )
     limit = min(max(limit, 1), 100)
     offset = max(offset, 0)
     with lock:

@@ -205,10 +205,25 @@ class TestSeriesRoute(unittest.TestCase):
             [p["t"] for p in out["points"]], [tk.t for tk in hist[-2:]]
         )
 
-    def test_unknown_metric_falls_back_to_rows(self):
+    def test_unknown_metric_is_400_not_silent_rows(self):
         self._step(5)
-        out = api.series(metric="bogus", n=2)
-        self.assertEqual(out["metric"], "rows")
+        with self.assertRaises(api.HTTPException) as ctx:
+            api.series(metric="bogus", n=2)
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("bogus", ctx.exception.detail)
+        self.assertIn("rows", ctx.exception.detail)
+
+    def test_metric_typo_is_400_not_silent_rows(self):
+        self._step(5)
+        with self.assertRaises(api.HTTPException) as ctx:
+            api.series(metric="latency", n=2)
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("latency", ctx.exception.detail)
+
+    def test_valid_metric_still_returns_its_own_points(self):
+        self._step(5)
+        out = api.series(metric="latency_sec", n=2)
+        self.assertEqual(out["metric"], "latency_sec")
         self.assertEqual(len(out["points"]), 2)
 
 

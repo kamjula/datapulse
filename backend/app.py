@@ -150,8 +150,18 @@ def status():
 
 @app.get("/api/series")
 def series(metric: str = "rows", n: int = 120):
-    if metric not in FEATURES + ["freshness_min", "schema_v", "dup_rate"]:
-        metric = "rows"
+    # An unknown metric used to silently fall back to "rows", so a typo
+    # like "latency" returned rows data instead of the chart asked for.
+    # Reject it with a clear 400 instead, the same way /api/incidents
+    # rejects an unknown severity. The frontend only ever asks for
+    # valid metrics, so this changes nothing for the live dashboard.
+    valid_metrics = FEATURES + ["schema_v"]
+    if metric not in valid_metrics:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown metric: {metric}. "
+            f"Valid values: {', '.join(valid_metrics)}.",
+        )
     hist = _last_n(sim.history, n)
     return {
         "metric": metric,

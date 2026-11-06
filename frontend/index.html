@@ -120,8 +120,27 @@ function draw(m, pts) {
   c.fillText("last: "+vs[vs.length-1].toFixed(2), 8, 24);
 }
 
+// One place for every API call: a failed request (server down, or a
+// non-2xx status) throws, so callers can show it instead of silently
+// rendering stale or half-empty data.
+async function getJson(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error("request failed: " + r.status + " " + url);
+  return r.json();
+}
+
 async function poll() {
-  const s = await (await fetch("/api/status")).json();
+  let s;
+  try {
+    s = await getJson("/api/status");
+  } catch (e) {
+    // Server down (or an error status): say so and keep the last good
+    // charts on screen instead of freezing silently. The next 2s tick
+    // retries automatically.
+    document.getElementById("warmbadge").textContent = "backend unreachable — retrying…";
+    document.getElementById("modebadge").textContent = "narrator: …";
+    return;
+  }
   document.getElementById("tickbadge").textContent = "tick " + s.tick;
   document.getElementById("modebadge").textContent = "narrator: " + s.narrator_mode;
   document.getElementById("warmbadge").textContent = s.warmed_up ? "● detector live" : "warming up…";
@@ -132,13 +151,20 @@ async function poll() {
       const b = document.createElement("button");
       b.className = "danger"; b.textContent = `${i+1} · ${k.replace(/_/g," ")}`;
       b.title = `Press ${i+1} to inject`;
-      b.onclick = async () => { await fetch("/api/inject/"+k, {method:"POST"}); };
+      b.onclick = async () => {
+        try { await getJson("/api/inject/"+k, {method:"POST"}); }
+        catch (e) { document.getElementById("warmbadge").textContent = "backend unreachable — retrying…"; }
+      };
       box.appendChild(b);
     });
   }
   for (const m of METRICS) {
-    const d = await (await fetch(`/api/series?metric=${m}&n=120`)).json();
-    draw(m, d.points);
+    try {
+      const d = await getJson(`/api/series?metric=${m}&n=120`);
+      draw(m, d.points);
+    } catch (e) {
+      // One bad chart must not kill the other four; next poll retries.
+    }
   }
   window._tick = s.tick;
   await fetchIncidents();
@@ -154,7 +180,13 @@ async function fetchIncidents() {
   if (window._sevFilter) q.set("severity", window._sevFilter);
   q.set("limit", String(INC_PAGE));
   q.set("offset", String(window._page * INC_PAGE));
-  const inc = await (await fetch("/api/incidents?" + q)).json();
+  let inc;
+  try {
+    inc = await getJson("/api/incidents?" + q);
+  } catch (e) {
+    // Backend down: leave the current list on screen; next poll retries.
+    return;
+  }
   // The list can only shrink while idling on a late page — reset to page 0 then.
   if (inc.offset > 0 && !inc.incidents.length && inc.total > 0) {
     window._page = 0;
@@ -294,7 +326,16 @@ async function ask() {
   document.getElementById("qin").value = "";
   const log = document.getElementById("chatlog");
   log.innerHTML += `<div class="q">❓ ${q.replace(/</g,"&lt;")}</div>`;
-  const r = await (await fetch("/api/ask", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({question:q})})).json();
+  let r;
+  try {
+    r = await getJson("/api/ask", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({question:q})});
+  } catch (e) {
+    // A failed ask used to vanish silently. Tell the user and keep the
+    // question visible so they can retry it.
+    log.innerHTML += `<div class="a" style="color:var(--bad)">Couldn't reach the copilot — is the server running? Try again in a moment.</div>`;
+    log.scrollTop = log.scrollHeight;
+    return;
+  }
   const matched = (r.matches || []).map(m => `${m.source} (${m.score})`).join(", ");
   const matchHtml = matched ? ` <span class="mode">matched: ${matched.replace(/</g,"&lt;")}</span>` : "";
   log.innerHTML += `<div class="a">${(r.text||"").replace(/</g,"&lt;")} <span class="mode">${r.mode}</span>${matchHtml}</div>`;

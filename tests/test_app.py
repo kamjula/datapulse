@@ -296,5 +296,50 @@ class TestIncidentsRoute(unittest.TestCase):
         self.assertEqual(out["total"], 3)
 
 
+class TestIncidentCap(unittest.TestCase):
+    def setUp(self):
+        self.saved_incidents = api.incidents
+        self.saved_next = api._next_incident_id
+        api.incidents = []
+        api._next_incident_id = 1
+
+    def tearDown(self):
+        api.incidents = self.saved_incidents
+        api._next_incident_id = self.saved_next
+
+    def test_new_incident_gets_next_id(self):
+        inc = api._record_incident(10)
+        self.assertEqual(inc["id"], 1)
+        self.assertEqual(inc["start_t"], 10)
+        self.assertEqual(inc["events"], [])
+        self.assertEqual(api._record_incident(20)["id"], 2)
+
+    def test_list_is_capped_at_max(self):
+        for t in range(api.MAX_INCIDENTS + 5):
+            api._record_incident(t)
+        self.assertEqual(len(api.incidents), api.MAX_INCIDENTS)
+
+    def test_cap_keeps_newest(self):
+        for t in range(api.MAX_INCIDENTS + 5):
+            api._record_incident(t)
+        self.assertEqual(api.incidents[0]["start_t"], 5)
+        self.assertEqual(api.incidents[-1]["start_t"], api.MAX_INCIDENTS + 4)
+
+    def test_ids_stay_unique_after_trimming(self):
+        # Ids used to be len(incidents) + 1, so trimming old incidents
+        # would hand a new incident an id still in the list.
+        for t in range(api.MAX_INCIDENTS + 5):
+            api._record_incident(t)
+        ids = [i["id"] for i in api.incidents]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(ids[0], 6)
+        self.assertEqual(ids[-1], api.MAX_INCIDENTS + 5)
+
+    def test_under_the_cap_nothing_is_dropped(self):
+        for t in range(3):
+            api._record_incident(t)
+        self.assertEqual([i["id"] for i in api.incidents], [1, 2, 3])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -27,6 +27,8 @@ incidents: list[dict] = []
 current: dict | None = None
 lock = threading.Lock()
 INCIDENT_GAP = 40  # ticks; events within this window belong to one incident
+MAX_INCIDENTS = 200  # newest incidents kept; older ones drop off (see _record_incident)
+_next_incident_id = 1  # ids come from here, not len(incidents), so trimming can never reuse one
 ESCALATION_WINDOW = 600  # ticks; ~10 minutes at the live sim's 1 tick/sec
 ESCALATION_MIN_HIGH = 3  # high-severity incidents in the window that trigger the hint
 ESCALATION_HINT = "Consider paging on-call — 3 high-severity incidents in 10 min."
@@ -90,6 +92,33 @@ def _last_n(history, n: int) -> list:
     return list(history)[-n:]
 
 
+def _record_incident(start_t: int) -> dict:
+    """Start a new incident and keep the stored history bounded.
+
+    The sim history is capped at 2000 ticks, but the incidents list used
+    to grow forever — one dict per incident, each holding its events,
+    snapshot, narration, citations and checklist. A demo left running
+    for days would keep all of it in memory. Keep only the newest
+    MAX_INCIDENTS; the escalation rule only looks at the last 600 ticks
+    and the dashboard pages 20 at a time, so nothing it shows is lost.
+    Callers must hold `lock`: append + trim stay atomic with the routes.
+    """
+    global _next_incident_id
+    inc = {
+        "id": _next_incident_id,
+        "start_t": start_t,
+        "events": [],
+        "snapshot": None,
+        "narration": None,
+        "citations": [],
+        "checklist": [],
+    }
+    _next_incident_id += 1
+    incidents.append(inc)
+    del incidents[:-MAX_INCIDENTS]
+    return inc
+
+
 def simulation_loop():
     global current
     while True:
@@ -98,16 +127,7 @@ def simulation_loop():
         with lock:
             if events:
                 if current is None or tick.t - current["start_t"] > INCIDENT_GAP:
-                    current = {
-                        "id": len(incidents) + 1,
-                        "start_t": tick.t,
-                        "events": [],
-                        "snapshot": None,
-                        "narration": None,
-                        "citations": [],
-                        "checklist": [],
-                    }
-                    incidents.append(current)
+                    current = _record_incident(tick.t)
                 current["events"].extend(events)
                 current["snapshot"] = tick.to_dict()
                 if current["narration"] is None:

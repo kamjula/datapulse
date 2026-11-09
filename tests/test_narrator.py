@@ -73,6 +73,18 @@ class TestNarratorTemplate(unittest.TestCase):
         out = self.n.narrate(incident, _citations())
         self.assertIn("weird_metric", out["text"])
 
+    def test_narrate_dup_rate_uses_human_label(self):
+        # dup_rate is a real detector metric (duplicate_surge), so the
+        # diagnosis must name it in plain words, not the raw key.
+        incident = {"id": 7, "snapshot": {"t": 500}, "events": [
+            {"metric": "dup_rate", "method": "zscore", "z": 8.4, "severity": "high"}]}
+        cites = [{"source": "duplicate_surge.md", "text": "dup detail", "score": 0.9}]
+        out = self.n.narrate(incident, cites)
+        self.assertIn("duplicate rate (data quality)", out["text"])
+        self.assertNotIn("**dup_rate**", out["text"])
+        self.assertIn("duplicate surge (duplicate rows)", out["text"])
+        self.assertNotIn("pipeline anomaly", out["text"])
+
     def test_narrate_unknown_runbook_area(self):
         cites = [{"source": "some_new_thing.md", "text": "stuff", "score": 0.5}]
         out = self.n.narrate(_incident(), cites)

@@ -61,6 +61,7 @@ sys.modules["pydantic"] = _pydantic
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from backend import app as api  # noqa: E402
+from backend.narrator import ABSTAIN  # noqa: E402
 
 
 def incident(i, start_t, severities):
@@ -339,6 +340,29 @@ class TestIncidentCap(unittest.TestCase):
         for t in range(3):
             api._record_incident(t)
         self.assertEqual([i["id"] for i in api.incidents], [1, 2, 3])
+class TestAskRoute(unittest.TestCase):
+    def test_response_includes_matches_the_ui_renders(self):
+        # The chat UI reads r.matches for its "matched: ..." line; the
+        # endpoint used to leave that field out, so the line never showed.
+        out = api.ask(types.SimpleNamespace(question="why are rows spiking?"))
+        self.assertIn("matches", out)
+        self.assertTrue(out["matches"])
+        for m in out["matches"]:
+            self.assertEqual(set(m.keys()), {"source", "score"})
+            self.assertTrue(m["source"].endswith(".md"))
+            self.assertGreater(m["score"], 0)
+        # matches cover the cited runbooks (top_sources searches a wider
+        # net than the top-2 chunks the answer cites, so it may list more)
+        self.assertTrue(set(out["citations"]) <= {m["source"] for m in out["matches"]})
+        self.assertIn("text", out)
+        self.assertIn("mode", out)
+
+    def test_off_topic_question_has_empty_matches_and_abstains(self):
+        out = api.ask(
+            types.SimpleNamespace(question="how do I bake a chocolate cake")
+        )
+        self.assertEqual(out["matches"], [])
+        self.assertEqual(out["text"].strip(), ABSTAIN)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,8 @@ ablation (backend/baselines.py, Experiment 1 & 3) showed it added zero
 measurable detection value on every tested scenario, scaled or unscaled.
 Simpler is better; the eval numbers prove it.
 
-Warm-up: the detector needs ~30 ticks before z-scores are valid.
+Warm-up: the detector needs ~30 ticks before z-scores are valid
+(or fewer with a smaller window — it warms up once the buffer fills).
 The demo UI shows a "warming up" state until then.
 """
 import os
@@ -39,9 +40,16 @@ def _env_float(name: str, default: float) -> float:
 class AnomalyDetector:
     # Default honored when the matching DATAPULSE_* env var is unset.
     DEFAULT_Z_THRESH = 3.5
+    # Ticks of baseline needed before z-scores are meaningful.
+    WARMUP_TICKS = 30
 
     def __init__(self, window: int = 120, z_thresh: float | None = None):
+        if window < 1:
+            raise ValueError(f"window must be at least 1, got {window}")
         self.window = window
+        # A window smaller than the warm-up would otherwise never fill
+        # enough to detect anything, so warm up once the buffer is full.
+        self.warmup = min(self.WARMUP_TICKS, window)
         self.z_thresh = (
             _env_float("DATAPULSE_Z_THRESH", self.DEFAULT_Z_THRESH)
             if z_thresh is None
@@ -60,13 +68,13 @@ class AnomalyDetector:
 
     @property
     def warmed_up(self) -> bool:
-        return len(self.buf) >= 30
+        return len(self.buf) >= self.warmup
 
     def update(self, tick) -> list[dict]:
         events: list[dict] = []
         v = self._vec(tick)
 
-        if len(self.buf) >= 30:
+        if len(self.buf) >= self.warmup:
             arr = np.array([self._vec(x) for x in self.buf])
             # Robust z-score (median/MAD): stays accurate even when the
             # baseline window already contains anomalies.

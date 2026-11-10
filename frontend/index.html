@@ -110,12 +110,20 @@ function draw(m, pts) {
   c.clearRect(0,0,W,H);
   if (!pts.length) return;
   const vs = pts.map(p=>p.v), mn = Math.min(...vs), mx = Math.max(...vs), rg = (mx-mn)||1;
-  const X = i => i/(pts.length-1)*W, Y = v => H-10-((v-mn)/rg)*(H-20);
+  // One point has no x-range: i/(n-1) divides by zero, so X is NaN and
+  // the canvas draws nothing. That is the first tick after a server
+  // restart, when every chart is blank until the second tick lands.
+  // Plot the single point as a dot in the middle instead.
+  const X = i => pts.length > 1 ? i/(pts.length-1)*W : W/2, Y = v => H-10-((v-mn)/rg)*(H-20);
   c.strokeStyle = "#f85149"; c.lineWidth = 2;
   pts.forEach((p,i)=>{ if(p.injected){ c.beginPath(); c.moveTo(X(i),0); c.lineTo(X(i),H); c.stroke(); }});
   c.strokeStyle = "#58a6ff"; c.lineWidth=3; c.beginPath();
   pts.forEach((p,i)=>{ i?c.lineTo(X(i),Y(p.v)):c.moveTo(X(i),Y(p.v)); });
   c.stroke();
+  if (pts.length === 1) {
+    c.fillStyle = "#58a6ff";
+    c.beginPath(); c.arc(X(0), Y(vs[0]), 4, 0, Math.PI*2); c.fill();
+  }
   c.fillStyle="#8b949e"; c.font="20px sans-serif";
   c.fillText("last: "+vs[vs.length-1].toFixed(2), 8, 24);
 }

@@ -80,6 +80,28 @@ class InjectionTest(unittest.TestCase):
         self.assertFalse(sim.inject("not_a_real_anomaly"))
         self.assertIsNone(sim.step().injected)
 
+    def test_second_inject_while_active_is_rejected(self):
+        sim = PipelineSimulator(seed=7)
+        self.warm_up(sim)
+        self.assertTrue(sim.inject("volume_spike"))
+        stepped = [sim.step() for _ in range(3)]
+        self.assertTrue(all(t.injected == "volume_spike" for t in stepped))
+        # Second inject must not cut the first one short.
+        self.assertFalse(sim.inject("latency_spike"))
+        rest = [sim.step() for _ in range(10)]
+        self.assertTrue(all(t.injected == "volume_spike" for t in rest[:9]))
+        self.assertIsNone(rest[9].injected)
+        # Once finished, injecting again works as before.
+        self.assertTrue(sim.inject("latency_spike"))
+
+    def test_same_kind_reinject_while_active_keeps_remaining(self):
+        sim = PipelineSimulator(seed=7)
+        self.warm_up(sim)
+        self.assertTrue(sim.inject("volume_spike"))
+        sim.step()
+        self.assertFalse(sim.inject("volume_spike"))
+        self.assertEqual(sim.active, ("volume_spike", 11))
+
     def test_every_kind_flags_ticks_for_exact_duration(self):
         for kind in INJECTABLE + MULTIVARIATE:
             sim = PipelineSimulator(seed=7)

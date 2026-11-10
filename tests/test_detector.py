@@ -102,6 +102,20 @@ class DetectorTest(unittest.TestCase):
         self.feed(det, [clean_tick(t) for t in range(80)])
         self.assertEqual(len(det.buf), 50)
 
+    def test_small_window_warms_up_once_buffer_fills(self):
+        # A window below 30 used to never warm up, so a big spike after
+        # 60 ticks was silently ignored. It must detect once full.
+        det = AnomalyDetector(window=20)
+        self.feed(det, [clean_tick(t) for t in range(60)])
+        self.assertTrue(det.warmed_up)
+        events = det.update(spike_tick(60, rows=8000))
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["metric"], "rows")
+
+    def test_window_below_one_is_rejected(self):
+        with self.assertRaises(ValueError):
+            AnomalyDetector(window=0)
+
 
 if __name__ == "__main__":
     unittest.main()

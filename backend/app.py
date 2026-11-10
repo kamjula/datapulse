@@ -248,4 +248,10 @@ def inject(kind: str):
 @app.post("/api/ask")
 def ask(body: AskBody):
     cits = rag.search(body.question, k=2)
-    return narrator.answer(body.question, cits)
+    out = narrator.answer(body.question, cits)
+    # The chat UI renders a "matched: <runbook> (<score>)" line from
+    # r.matches, but the answer never carried that field, so the line
+    # could never show. top_sources is built for exactly this: one best
+    # score per runbook for the same question.
+    out["matches"] = rag.top_sources(body.question)
+    return out

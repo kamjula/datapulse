@@ -23,7 +23,7 @@ eval harness to prove it works.
 
 Data downtime is expensive, but most "AI observability" demos are black
 boxes. DataPulse shows the full loop that hiring managers actually ask
-about in Data Scientist / Applied AI interviews:
+about in AI/ML Engineer / Applied AI interviews:
 
 ```
 telemetry ──► ML detection ──► RAG over runbooks ──► GenAI diagnosis

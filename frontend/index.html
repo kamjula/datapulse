@@ -228,6 +228,19 @@ function relAgo(nowTick, startT) {
   return h + (h === 1 ? " hr ago" : " hrs ago");
 }
 
+// Same labels as backend/narrator.py METRIC_LABELS, so the timeline and
+// the exported file show "duplicate rate" instead of raw "dup_rate".
+const METRIC_LABELS = {
+  rows: "row volume",
+  latency_sec: "pipeline latency",
+  null_rate: "null rate (data quality)",
+  freshness_min: "feed freshness",
+  schema_v: "schema version",
+  dup_rate: "duplicate rate (data quality)",
+  multivariate: "combined metrics",
+};
+function metricLabel(m) { return METRIC_LABELS[m] || m; }
+
 // Expand/collapse survives the 2s poll re-render via this id set.
 window._expanded = window._expanded || new Set();
 window._tick = window._tick || 0;
@@ -262,7 +275,7 @@ function renderTimeline() {
       + `<span class="tl-caret">${open ? "▾" : "▸"}</span></div>`;
     if (!open) return `<div class="tl-node">${head}</div>`;
     const ev = i.events.map(e =>
-      `${e.metric} via ${e.method}${e.z != null ? ` (z=${e.z})` : ""}${e.detail ? ` ${e.detail}` : ""}`
+      `${metricLabel(e.metric)} via ${e.method}${e.z != null ? ` (z=${e.z})` : ""}${e.detail ? ` ${e.detail}` : ""}`
     ).map(escHtml).join("; ");
     const n = i.narration || {};
     const cl = (i.checklist || []).map(c =>
@@ -297,7 +310,7 @@ function exportIncident(id) {
   L.push(`- narrator mode: ${n.mode || "pending"}`, "");
   L.push("## Signals");
   inc.events.forEach(e => {
-    let s = `- ${e.metric} via ${e.method}`;
+    let s = `- ${metricLabel(e.metric)} via ${e.method}`;
     if (e.z != null) s += ` (z=${e.z})`;
     if (e.detail) s += ` — ${e.detail}`;
     L.push(s);

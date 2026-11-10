@@ -14,6 +14,8 @@ app_port: 7860
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4+-orange)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
+[![DataPulse overview](datapulse-overview.png)](https://github.com/kamjula/datapulse)
+
 **ML detects, GenAI explains.** A live data-pipeline watchdog where an ML
 anomaly detector flags telemetry issues and a GenAI copilot writes the
 root-cause diagnosis — grounded in a runbook library, with citations and an

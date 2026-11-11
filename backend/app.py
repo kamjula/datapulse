@@ -201,7 +201,8 @@ def get_incidents(severity: str | None = None, limit: int = 20, offset: int = 0)
       limit: page size (clamped to 1..100, default 20)
       offset: how many newest incidents to skip (default 0)
     Response keeps the "incidents" list (backward compatible) and adds
-    "total" (matching count before paging) plus echo of limit/offset.
+    "total" (matching count before paging) plus echo of limit/offset,
+    and "max_incidents" (how many newest incidents the backend keeps).
     """
     # An unknown severity used to return an empty list with total 0,
     # which looks exactly like "no matching incidents" to a caller that
@@ -226,7 +227,16 @@ def get_incidents(severity: str | None = None, limit: int = 20, offset: int = 0)
             if i["id"] in hint_ids:
                 d["escalation_hint"] = ESCALATION_HINT
             payload.append(d)
-    return {"incidents": payload, "total": total, "limit": limit, "offset": offset}
+    return {
+        "incidents": payload,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        # How many newest incidents the backend keeps (see MAX_INCIDENTS):
+        # the timeline uses this to drop expanded ids that can never
+        # come back, so the expanded set stops growing over a long session.
+        "max_incidents": MAX_INCIDENTS,
+    }
 
 
 @app.post("/api/inject/{kind}")

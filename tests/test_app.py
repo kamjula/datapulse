@@ -296,6 +296,12 @@ class TestIncidentsRoute(unittest.TestCase):
         out = api.get_incidents()
         self.assertEqual(out["total"], 3)
 
+    def test_response_reports_max_incidents(self):
+        # The timeline needs the backend's retention cap to prune
+        # expanded ids that fell off the capped history.
+        out = api.get_incidents()
+        self.assertEqual(out["max_incidents"], api.MAX_INCIDENTS)
+
 
 class TestIncidentCap(unittest.TestCase):
     def setUp(self):

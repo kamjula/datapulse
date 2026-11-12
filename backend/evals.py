@@ -113,9 +113,9 @@ def run_abstention() -> bool:
 def run_latency(n_ticks: int = 2000, warmup: int = 200) -> dict:
     """Section 4: detector latency benchmark.
 
-    Warms the detector up fully first (rolling window filled, IsolationForest
-    fitted) so the numbers reflect steady-state production-like cost rather
-    than cold-start fitting, then times ``AnomalyDetector.update`` per tick.
+    Warms the detector up fully first (rolling window filled) so the
+    numbers reflect steady-state production-like cost rather than
+    cold-start fitting, then times ``AnomalyDetector.update`` per tick.
     """
     sim = PipelineSimulator(seed=99)
     det = AnomalyDetector()

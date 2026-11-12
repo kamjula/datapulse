@@ -2,6 +2,35 @@
 
 All notable changes to DataPulse are documented here.
 
+## [Unreleased]
+
+- **IsolationForest layer removed (Oct 2026)** — ablation showed zero
+  added detection value, so the detector is robust z-score +
+  schema-drift only now. The ablation code stays in
+  `backend/baselines.py` so the result is reproducible
+  (see `backend/baseline_report.md`).
+- **Latency gate now passes** — re-running the Day 9 benchmark after
+  the removal reports p95 per-tick detector latency ~0.24 ms, inside
+  the 5 ms gate (it was ~7–8 ms with the IsolationForest layer). The
+  old known limitation below is closed.
+- **LLM copilot eval harness + CI triage agent** — copilot answers
+  graded like a production LLM eval (citation 1.00, abstention 3/4);
+  a LangGraph triage agent reads a failing CI log and ships a cited
+  report, or abstains (#21, #22, #23, #27).
+- **Incident history capped at 200** with frontend pruning of expanded
+  ids that fall off the cap (#49, #52).
+- **Fixes since 1.0.0 (highlights)** — narrator duplicate/dup-rate
+  labels (#39, #50), `/api/ask` missing matches (#46), chart blank on
+  first tick (#48), dashboard silent when the backend is down (#47),
+  API validation 400s for unknown metric / severity / kind / k (#45,
+  #44, #38, #42), detector small-window warmup (#40), simulator busy
+  inject (#41), CI verify empty sections (#43), unclosed file
+  handles (#34, #36), eval unittest discovery (#33), frontend metric
+  labels (#51).
+- **Tests** — unit suites for detector, simulator, narrator, RAG, app
+  helpers, evals, baselines and llm evals (#20, #24, #26, #28, #29,
+  #30, #31, #32). 156 tests passing.
+
 ## [1.0.0] — 2026-10-04
 
 First stable release. DataPulse is a GenAI Data Reliability Copilot:
@@ -21,7 +50,8 @@ detection precision 0.96 · recall 1.00 · F1 0.98 across 7 anomaly types,
   rows) + `dup_rate` metric and its runbook.
 - **Day 3** — Detector thresholds via env vars: `DATAPULSE_Z_THRESH`
   (default 3.5) and `DATAPULSE_IF_THRESH` (default -0.15), documented in
-  README "Configuration".
+  README "Configuration". (`DATAPULSE_IF_THRESH` is gone now: the
+  IsolationForest layer was removed in Oct 2026 — see Unreleased.)
 - **Day 4** — "Export .md" button on the incident panel: downloads the
   incident (events, diagnosis, citations) as Markdown.
 - **Day 5** — Structured checklist in the incident API payload: top 3
@@ -50,10 +80,9 @@ detection precision 0.96 · recall 1.00 · F1 0.98 across 7 anomaly types,
 
 ### Known limitations
 
-- The Day 9 latency benchmark currently reports p95 detector latency of
-  ~7–8 ms against the 5 ms gate on the runner. This is a documented,
-  honest finding — not a release blocker — and is tracked as future work
-  (detector optimization: window-array caching, fewer IsolationForest
-  trees). It is not "fixed" by weakening the threshold.
+- None open right now. One earlier limitation is closed: the Day 9
+  latency benchmark once reported p95 detector latency of ~7–8 ms
+  against the 5 ms gate; after the IsolationForest layer was removed
+  (Oct 2026) the same benchmark reports p95 ~0.24 ms, inside the gate.
 
 [1.0.0]: https://github.com/kamjula/datapulse/releases/tag/v1.0.0

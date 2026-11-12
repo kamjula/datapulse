@@ -16,6 +16,7 @@ from backend.evals import (  # noqa: E402
     main,
     run_abstention,
     run_detection,
+    run_latency,
     run_narration,
 )
 from backend.simulator import INJECTABLE  # noqa: E402
@@ -61,6 +62,16 @@ class NarrationTest(unittest.TestCase):
 class AbstentionTest(unittest.TestCase):
     def test_off_topic_question_is_not_answered(self):
         self.assertTrue(run_abstention())
+
+
+class LatencyTest(unittest.TestCase):
+    def test_p95_stays_inside_the_5ms_gate(self):
+        # the changelog says the old ~7-8 ms limitation is closed
+        # after the IsolationForest removal; pin that here so a
+        # detector change that slows things down fails the suite
+        result = run_latency(n_ticks=500, warmup=200)
+        self.assertLess(result["p95_ms"], 5.0)
+        self.assertGreater(result["throughput"], 0)
 
 
 class MainReportTest(unittest.TestCase):

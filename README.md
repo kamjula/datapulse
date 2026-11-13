@@ -118,14 +118,20 @@ diff's file names widening the query before giving up.
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
+# run the test suite
+python -m unittest discover -s tests
+
 # run evals (no API key needed)
 python -m backend.evals
 
 # LLM copilot evals (no API key needed)
 python -m backend.llm_evals
 
-# CI triage agent evals (no API key needed)
+# CI triage agent evals (no API key needed) — the agent has its own
+# requirements, install those first or the import fails
+pip install -r langgraph_agent/requirements.txt
 cd langgraph_agent && python evals.py
+cd ..
 
 # start the live demo
 uvicorn backend.app:app --port 8000

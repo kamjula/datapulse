@@ -49,7 +49,11 @@ _pydantic = types.ModuleType("pydantic")
 
 
 class _BaseModel:
-    pass
+    def __init__(self, **kwargs):
+        # Real pydantic stores the fields; the stub only needs to hold
+        # them so route code under test can read them back.
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
 
 _pydantic.BaseModel = _BaseModel
@@ -369,6 +373,22 @@ class TestAskRoute(unittest.TestCase):
         )
         self.assertEqual(out["matches"], [])
         self.assertEqual(out["text"].strip(), ABSTAIN)
+
+
+class TestAskBlankQuestion(unittest.TestCase):
+    def test_blank_question_is_400(self):
+        # A blank question used to come back as an abstain ("not in the
+        # runbooks") — the wrong diagnosis when there was no question.
+        for q in ("", "   ", "\n\t"):
+            with self.assertRaises(api.HTTPException) as ctx:
+                api.ask(api.AskBody(question=q))
+            self.assertEqual(ctx.exception.status_code, 400)
+            self.assertIn("blank", ctx.exception.detail)
+
+    def test_real_question_still_answers(self):
+        out = api.ask(api.AskBody(question="what do I do about a null surge?"))
+        self.assertIn("null_surge.md", out["citations"])
+        self.assertNotEqual(out["text"].strip(), ABSTAIN)
 
 
 if __name__ == "__main__":

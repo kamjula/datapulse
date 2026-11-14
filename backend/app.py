@@ -257,6 +257,16 @@ def inject(kind: str):
 
 @app.post("/api/ask")
 def ask(body: AskBody):
+    # A blank question used to sail through retrieval and come back as an
+    # abstain ("not in the runbooks"), which reads like the runbooks
+    # don't cover the topic — when the real problem is there was no
+    # question at all. Reject it up front with a clear 400, the same
+    # way unknown metrics, severities and kinds are rejected.
+    if not body.question.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="question must not be blank.",
+        )
     cits = rag.search(body.question, k=2)
     out = narrator.answer(body.question, cits)
     # The chat UI renders a "matched: <runbook> (<score>)" line from

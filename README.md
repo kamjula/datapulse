@@ -11,13 +11,13 @@
 **ML detects, GenAI explains.** A live data-pipeline watchdog where an ML
 anomaly detector flags telemetry issues and a GenAI copilot writes the
 root-cause diagnosis — grounded in a runbook library, with citations and an
-eval harness to prove it works.
+eval harness that measures it.
 
 ## Why this exists
 
-Data downtime is expensive, but most "AI observability" demos are black
-boxes. DataPulse shows the full loop that hiring managers actually ask
-about in AI/ML Engineer / Applied AI interviews:
+Data downtime is expensive, and most "AI observability" demos are black
+boxes. DataPulse makes the whole loop inspectable — detection, retrieval,
+diagnosis, and the evals that check each step:
 
 ```
 telemetry ──► ML detection ──► RAG over runbooks ──► GenAI diagnosis
@@ -46,10 +46,10 @@ telemetry ──► ML detection ──► RAG over runbooks ──► GenAI dia
 - **Eval harness** (`backend/evals.py`) — detection precision/recall/F1 per
   anomaly, detection delay, narration-grounding checks, abstention test,
   latency benchmark.
-- **LLM eval harness** (`backend/llm_evals.py`) — grades the copilot's
-  answers like a production LLM eval: 10 answerable questions (citation
-  accuracy 1.00, groundedness 10/10) plus 4 unanswerable questions
-  (abstention 3/4). The one miss is documented, not tuned away — see
+- **Copilot eval harness** (`backend/llm_evals.py`) — grades the copilot's
+  answers for citation accuracy, groundedness, and abstention: 10 answerable
+  questions (citation accuracy 1.00, groundedness 10/10) plus 4 unanswerable
+  questions (abstention 3/4). The one miss is documented, not tuned away — see
   the harness docstring.
 - **CI triage agent** — LangGraph `StateGraph` (`langgraph_agent/`) that
   reads a failing CI log, retrieves the matching runbook, and produces
@@ -72,9 +72,13 @@ telemetry ──► ML detection ──► RAG over runbooks ──► GenAI dia
 Overall: **precision 0.96 · recall 1.00 · F1 0.98** · all narrations cite a
 runbook and label their generation mode · abstention holds.
 
-## LLM Copilot & CI Agent Evals — Real Runs
+## Copilot & CI Agent Evals — Reproducible Runs
 
 ### Copilot answers (`backend/llm_evals.py`)
+
+Run without an API key, so the narrator is in its deterministic template
+mode: these numbers measure retrieval, citation, and abstention — not
+Claude's wording.
 
 | question set | result |
 |---|---|
@@ -116,7 +120,7 @@ python -m unittest discover -s tests
 # run evals (no API key needed)
 python -m backend.evals
 
-# LLM copilot evals (no API key needed)
+# copilot evals (template mode, no API key needed)
 python -m backend.llm_evals
 
 # CI triage agent evals (no API key needed) — the agent has its own
@@ -172,15 +176,15 @@ flowchart LR
     NAR -.->|"grounding / abstention"| EV
 ```
 
-## 60-Second Recruiter Demo
+## 60-Second Demo Walkthrough
 
-| sec | what to click | what to say |
-|-----|---------------|-------------|
-| 0–10 | Open the dashboard | "This is DataPulse, a GenAI data-reliability copilot — ML watches the pipeline, and a GenAI copilot writes the root-cause diagnosis." |
-| 10–25 | Hit **null surge** in the chaos panel; point at the live charts | "I'll break the pipeline right now. Watch the null-rate chart spike —" |
-| 25–40 | Point at the new incident card and the timeline | "Detection fired at tick zero. The copilot pulls the right runbook, cites it, and turns the fix into a 3-step checklist." |
-| 40–55 | Ask the copilot: *"what do I do about a null surge?"* | "It answers from the runbook library only — off-topic questions get a refusal instead of a hallucinated answer." |
-| 55–60 | Point at the README eval table | "And it's all verified by an eval harness in the repo — F1 0.98, abstention guardrail tested." |
+| sec | action | what you'll see |
+|-----|--------|-----------------|
+| 0–10 | Open the dashboard at http://localhost:8000 | Live charts for rows, latency, null-rate, freshness, and schema version. |
+| 10–25 | Hit **null surge** in the chaos panel | The null-rate chart spikes. |
+| 25–40 | Open the new incident card and the timeline | Detection fires at tick 0; the diagnosis cites the matching runbook, turns the fix into a 3-step checklist, and labels its generation mode. |
+| 40–55 | Ask the copilot *"what do I do about a null surge?"*, then an off-topic question | A cited answer from the runbook library; the off-topic question gets an abstention instead of a guess. |
+| 55–60 | Run `python -m backend.evals` | The eval table above: precision 0.96 · recall 1.00 · F1 0.98, abstention check passing. |
 
 ## Roadmap
 
@@ -192,3 +196,8 @@ flowchart LR
 ## Stack
 
 Python · FastAPI · scikit-learn · TF-IDF RAG · Claude API · LangGraph · vanilla JS dashboard
+
+## Author
+
+**Sravani Kamjula** · AI/ML Engineer  
+[LinkedIn](https://www.linkedin.com/in/sravani-kamjula/) · [Portfolio](https://sravaniportfoli.netlify.app/) · [GitHub](https://github.com/kamjula)

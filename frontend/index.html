@@ -133,7 +133,15 @@ function draw(m, pts) {
 // rendering stale or half-empty data.
 async function getJson(url, opts) {
   const r = await fetch(url, opts);
-  if (!r.ok) throw new Error("request failed: " + r.status + " " + url);
+  if (!r.ok) {
+    // Carry the status and the server's reason on the error, so a
+    // caller that shows the failure can say what actually happened
+    // (e.g. a busy inject) instead of guessing "backend unreachable".
+    const err = new Error("request failed: " + r.status + " " + url);
+    err.status = r.status;
+    try { const b = await r.json(); if (b && b.detail) err.detail = b.detail; } catch (e) {}
+    throw err;
+  }
   return r.json();
 }
 
@@ -161,7 +169,12 @@ async function poll() {
       b.title = `Press ${i+1} to inject`;
       b.onclick = async () => {
         try { await getJson("/api/inject/"+k, {method:"POST"}); }
-        catch (e) { document.getElementById("warmbadge").textContent = "backend unreachable — retrying…"; }
+        catch (e) {
+          // A 409 means another injection is still running: say which
+          // one, instead of claiming the backend is down.
+          document.getElementById("warmbadge").textContent =
+            (e.status === 409 && e.detail) ? e.detail : "backend unreachable — retrying…";
+        }
       };
       box.appendChild(b);
     });

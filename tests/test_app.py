@@ -260,6 +260,32 @@ class TestInjectRoute(unittest.TestCase):
         self.assertEqual(out, {"ok": True, "kind": "slow_burn"})
         api.sim.active = None
 
+    def test_second_inject_while_busy_is_409_not_silent_ok(self):
+        # The simulator rejects a second inject while one is running;
+        # the route used to ignore that and answer ok:true anyway, so
+        # the demo button looked like it worked when nothing happened.
+        out = api.inject("volume_spike")
+        self.assertEqual(out, {"ok": True, "kind": "volume_spike"})
+        try:
+            with self.assertRaises(api.HTTPException) as ctx:
+                api.inject("latency_spike")
+            self.assertEqual(ctx.exception.status_code, 409)
+            self.assertIn("volume_spike", ctx.exception.detail)
+            self.assertIn("latency_spike", ctx.exception.detail)
+            # The running injection was not cut short by the rejected one.
+            self.assertEqual(api.sim.active[0], "volume_spike")
+        finally:
+            api.sim.active = None
+
+    def test_inject_works_again_once_the_first_finishes(self):
+        api.inject("volume_spike")
+        for _ in range(12):  # volume_spike lasts 12 ticks
+            api.sim.step()
+        self.assertIsNone(api.sim.active)
+        out = api.inject("latency_spike")
+        self.assertEqual(out, {"ok": True, "kind": "latency_spike"})
+        api.sim.active = None
+
 
 class TestIncidentsRoute(unittest.TestCase):
     def setUp(self):

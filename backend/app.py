@@ -251,7 +251,17 @@ def inject(kind: str):
             detail=f"Unknown anomaly kind: {kind}. "
             f"Valid kinds: {', '.join(INJECTABLE + MULTIVARIATE)}",
         )
-    sim.inject(kind)
+    # The simulator only runs one injection at a time: a second inject
+    # while one is running is rejected instead of cutting it short.
+    # Say so with a 409 (and which kind is running) instead of
+    # returning ok:true for an injection that never happened.
+    if not sim.inject(kind):
+        running = sim.active[0] if sim.active else None
+        detail = "Another injection is already running"
+        if running:
+            detail += f": {running}"
+        detail += f". Wait for it to finish, then inject {kind}."
+        raise HTTPException(status_code=409, detail=detail)
     return {"ok": True, "kind": kind}
 
 

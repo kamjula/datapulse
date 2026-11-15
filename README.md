@@ -1,11 +1,3 @@
----
-title: DataPulse — GenAI Data Reliability Copilot
-emoji: ⚡
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-app_port: 7860
----
 
 # ⚡ DataPulse — GenAI Data Reliability Copilot
 

@@ -77,8 +77,8 @@ detection precision 0.96 · recall 1.00 · F1 0.98 across 7 anomaly types,
 - **Day 13** — `/incidents` pagination + filter: `?severity=`,
   `?limit=`, `?offset=`; the frontend timeline uses them.
 - **Day 14** — Architecture diagram (mermaid: simulator → detector →
-  RAG → narrator → dashboard) in README, plus a 60-second recruiter
-  demo script (what to click, what to say).
+  RAG → narrator → dashboard) in README, plus a 60-second demo
+  walkthrough.
 - **Day 15** — This release: CHANGELOG.md + the `v1.0.0` tag.
 
 ### Known limitations

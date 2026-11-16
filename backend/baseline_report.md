@@ -35,7 +35,7 @@ Per-anomaly tick-recall / detection delay (ticks):
 | stale_feed | 1.00 / 0 | 0.00 / missed | 1.00 / 0 |
 | duplicate_surge | 1.00 / 0 | 0.00 / missed | 1.00 / 0 |
 
-Honest reading: on this suite the robust z-score layer does all the work.
+Reading: on this suite the robust z-score layer does all the work.
 The IsolationForest layer (contamination=0.03, threshold −0.15) never fires
 on the injected anomalies — verified: IF decision scores on injected ticks
 range −0.024…0.127, never below −0.15. The shipped suite injects
@@ -74,7 +74,7 @@ Training score_samples span only [−0.576, −0.383] (range 0.19), and a
 threshold (−0.15) is never reached by anything, normal or anomalous.
 The IF layer, as configured, cannot detect what it was built for.
 
-Honest conclusion: on every tested scenario the robust z-score layer
+Conclusion: on every tested scenario the robust z-score layer
 carries detection and the IF layer adds zero measurable value —
 unscaled or scaled. **Decision (Oct 2026): the IF layer was removed**
 from `backend/detector.py`; the shipped detector is robust z-score +

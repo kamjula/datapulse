@@ -1,6 +1,7 @@
 
 # ⚡ DataPulse — GenAI Data Reliability Copilot
 
+[![CI](https://github.com/kamjula/datapulse/actions/workflows/ci.yml/badge.svg)](https://github.com/kamjula/datapulse/actions/workflows/ci.yml)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-teal)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4+-orange)

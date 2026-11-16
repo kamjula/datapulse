@@ -1,5 +1,5 @@
 
-# ⚡ DataPulse — GenAI Data Reliability Copilot
+# DataPulse: GenAI Data Reliability Copilot
 
 [![CI](https://github.com/kamjula/datapulse/actions/workflows/ci.yml/badge.svg)](https://github.com/kamjula/datapulse/actions/workflows/ci.yml)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
@@ -9,16 +9,14 @@
 
 [![DataPulse overview](datapulse-overview.png)](https://github.com/kamjula/datapulse)
 
-**ML detects, GenAI explains.** A live data-pipeline watchdog where an ML
-anomaly detector flags telemetry issues and a GenAI copilot writes the
-root-cause diagnosis — grounded in a runbook library, with citations and an
-eval harness that measures it.
+DataPulse watches a live data pipeline. An ML anomaly detector flags
+telemetry problems, and a GenAI copilot writes the root-cause diagnosis from a
+runbook library, with citations. An eval harness measures both parts.
 
-## Why this exists
+## How it works
 
-Data downtime is expensive, and most "AI observability" demos are black
-boxes. DataPulse makes the whole loop inspectable — detection, retrieval,
-diagnosis, and the evals that check each step:
+Every step of the loop can be inspected: detection, retrieval, diagnosis, and
+the evals that check each one.
 
 ```
 telemetry ──► ML detection ──► RAG over runbooks ──► GenAI diagnosis
@@ -28,37 +26,38 @@ telemetry ──► ML detection ──► RAG over runbooks ──► GenAI dia
 
 ## Features
 
-- **Live pipeline simulator** — emits rows, latency, null-rate, freshness,
+- **Live pipeline simulator:** emits rows, latency, null-rate, freshness,
   schema version every second (seeded, reproducible).
-- **ML anomaly detection** — robust z-score (median/MAD, immune to baseline
+- **ML anomaly detection:** robust z-score (median/MAD, immune to baseline
   contamination) + discrete schema-drift check. (An IsolationForest layer
-  was evaluated and removed — ablation showed zero added value;
+  was evaluated and removed because the ablation showed no added value;
   see `backend/baseline_report.md`.)
-- **Chaos panel** — inject 7 failure modes live: volume spike/drop, latency
-  spike, null surge, schema change, stale feed, duplicate surge. Detection delay: **0 ticks**.
-- **GenAI root-cause narration** — incident context + retrieved runbook
+- **Chaos panel:** inject 7 failure modes live (volume spike/drop, latency
+  spike, null surge, schema change, stale feed, duplicate surge). Detection
+  delay is 0 ticks on the seeded data.
+- **GenAI root-cause narration:** incident context + retrieved runbook
   excerpts → concise diagnosis with `[source]` citations. Claude API when
   `ANTHROPIC_API_KEY` is set, deterministic template fallback otherwise
   (the UI always labels which mode produced the text).
-- **Abstention guardrail** — off-topic questions get "not in the runbooks"
+- **Abstention guardrail:** off-topic questions get "not in the runbooks"
   instead of a hallucinated answer.
-- **Copilot Q&A** — ask about pipeline failures in plain English, answered
+- **Copilot Q&A:** ask about pipeline failures in plain English, answered
   from the runbooks.
-- **Eval harness** (`backend/evals.py`) — detection precision/recall/F1 per
+- **Eval harness** (`backend/evals.py`): detection precision/recall/F1 per
   anomaly, detection delay, narration-grounding checks, abstention test,
   latency benchmark.
-- **Copilot eval harness** (`backend/llm_evals.py`) — grades the copilot's
+- **Copilot eval harness** (`backend/llm_evals.py`): grades the copilot's
   answers for citation accuracy, groundedness, and abstention: 10 answerable
   questions (citation accuracy 1.00, groundedness 10/10) plus 4 unanswerable
-  questions (abstention 3/4). The one miss is documented, not tuned away — see
-  the harness docstring.
-- **CI triage agent** — LangGraph `StateGraph` (`langgraph_agent/`) that
+  questions (abstention 3/4). The one miss is explained in the harness
+  docstring rather than tuned away.
+- **CI triage agent:** LangGraph `StateGraph` (`langgraph_agent/`) that
   reads a failing CI log, retrieves the matching runbook, and produces
-  a cited, verified triage report — or abstains when nothing matches.
+  a cited, verified triage report, or abstains when nothing matches.
   Deterministic retrieval, no LLM in the loop: 8/8 cases correct,
   8/8 answers verified against the cited runbook.
 
-## Evaluation Results — Seeded Synthetic Data
+## Evaluation results (seeded synthetic data)
 
 | anomaly | tick-recall | detection delay |
 |---|---|---|
@@ -73,12 +72,12 @@ telemetry ──► ML detection ──► RAG over runbooks ──► GenAI dia
 Overall: **precision 0.96 · recall 1.00 · F1 0.98** · all narrations cite a
 runbook and label their generation mode · abstention holds.
 
-## Copilot & CI Agent Evals — Reproducible Runs
+## Copilot and CI agent evals
 
 ### Copilot answers (`backend/llm_evals.py`)
 
 Run without an API key, so the narrator is in its deterministic template
-mode: these numbers measure retrieval, citation, and abstention — not
+mode. These numbers measure retrieval, citation, and abstention, not
 Claude's wording.
 
 | question set | result |
@@ -87,17 +86,17 @@ Claude's wording.
 | 4 unanswerable questions | abstention 3/4 = 0.75 |
 | gate | PASS (groundedness perfect, citation ≥ 0.90, abstention ≥ 0.75) |
 
-One known miss, kept visible on purpose: "How do I tune a Kafka partition
-count?" shares one generic word ("count") with a runbook, so TF-IDF scores
-it above the weakest real question — a score threshold alone cannot
+One known miss: "How do I tune a Kafka partition count?" shares one generic
+word ("count") with a runbook, so TF-IDF scores it above the weakest real
+question. A score threshold alone cannot
 separate it without also rejecting a genuine question. See the docstring
 in `backend/llm_evals.py`.
 
 ### CI triage agent (`langgraph_agent/`)
 
-A LangGraph `StateGraph` — collect → extract → diagnose → (retry) →
-verify → report — that reads a failing CI log, retrieves the matching
-runbook, and ships a cited triage report. Retrieval is deterministic
+A LangGraph `StateGraph` (collect → extract → diagnose → (retry) →
+verify → report) that reads a failing CI log, retrieves the matching
+runbook, and writes a cited triage report. Retrieval is deterministic
 (no LLM in the loop), so the eval is reproducible. If the first pass
 abstains and a PR diff is available, the graph retries once with the
 diff's file names widening the query before giving up.
@@ -124,8 +123,8 @@ python -m backend.evals
 # copilot evals (template mode, no API key needed)
 python -m backend.llm_evals
 
-# CI triage agent evals (no API key needed) — the agent has its own
-# requirements, install those first or the import fails
+# CI triage agent evals (no API key needed). The agent has its own
+# requirements; install those first or the import fails
 pip install -r langgraph_agent/requirements.txt
 cd langgraph_agent && python evals.py
 pytest  # the agent's own unit tests
@@ -140,8 +139,8 @@ Optional: `export ANTHROPIC_API_KEY=...` for Claude-powered narrations.
 
 ## Configuration
 
-Detector sensitivity is tunable through environment variables — no code
-changes needed to tighten or loosen anomaly detection:
+Detector sensitivity is set through environment variables, so anomaly
+detection can be tightened or loosened without code changes:
 
 | variable | default | what it does |
 |---|---|---|

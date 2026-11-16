@@ -127,6 +127,7 @@ python -m backend.llm_evals
 # requirements, install those first or the import fails
 pip install -r langgraph_agent/requirements.txt
 cd langgraph_agent && python evals.py
+pytest  # the agent's own unit tests
 cd ..
 
 # start the live demo

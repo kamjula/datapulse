@@ -29,7 +29,7 @@ All notable changes to DataPulse are documented here.
   labels (#51).
 - **Tests** — unit suites for detector, simulator, narrator, RAG, app
   helpers, evals, baselines and llm evals (#20, #24, #26, #28, #29,
-  #30, #31, #32). 158 tests passing.
+  #30, #31, #32, #57). 160 tests passing.
 - **`/api/ask` rejects blank questions** — an empty question used to
   come back as an abstain ("not in the runbooks"); it now gets a
   clear 400, like unknown metrics, severities and kinds.

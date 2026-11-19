@@ -181,9 +181,9 @@ flowchart LR
 
 | sec | action | what you'll see |
 |-----|--------|-----------------|
-| 0–10 | Open the dashboard at http://localhost:8000 | Live charts for rows, latency, null-rate, freshness, and schema version. |
+| 0–10 | Open the dashboard at http://localhost:8000 | Live charts for rows, latency, null-rate, freshness, duplicate rate, and schema version. |
 | 10–25 | Hit **null surge** in the chaos panel | The null-rate chart spikes. |
-| 25–40 | Open the new incident card and the timeline | Detection fires at tick 0; the diagnosis cites the matching runbook, turns the fix into a 3-step checklist, and labels its generation mode. |
+| 25–40 | Open the new incident card and the timeline | Detection fires at tick 0; the diagnosis cites the matching runbook, builds a response checklist from the cited runbook sections, and labels its generation mode. |
 | 40–55 | Ask the copilot *"what do I do about a null surge?"*, then an off-topic question | A cited answer from the runbook library; the off-topic question gets an abstention instead of a guess. |
 | 55–60 | Run `python -m backend.evals` | The eval table above: precision 0.96 · recall 1.00 · F1 0.98, abstention check passing. |
 
